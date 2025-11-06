@@ -9,30 +9,36 @@
   <packaging>jar</packaging>
 
   <!-- 표준이 아니면 소스 디렉터리 직접 지정 -->
-  <build>
-    <sourceDirectory>sdiag/src</sourceDirectory>          <!-- 실제 .java 경로로 교체 -->
-    <resources>
-      <resource><directory>sdiag/resources</directory></resource> <!-- 없으면 삭제 -->
-    </resources>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.11.0</version>
-        <configuration>
-          <source>1.8</source>     <!-- 프로젝트 JDK에 맞춰 1.8/11/17 등 -->
-          <target>1.8</target>
-          <encoding>UTF-8</encoding>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
+ <build>
+  <sourceDirectory>sdiag/src</sourceDirectory>            <!-- 실제 경로로 교체 -->
+  <resources>
+    <resource><directory>sdiag/resources</directory></resource>
+  </resources>
+  <plugins>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-compiler-plugin</artifactId>
+      <version>3.11.0</version>
+      <configuration>
+        <source>1.8</source><target>1.8</target><encoding>UTF-8</encoding>
+      </configuration>
+    </plugin>
+  </plugins>
+</build>
+
 
   <dependencies>
-    <!-- 필요한 라이브러리 최소 추가. 예: Servlet API -->
-    <dependency>
-      <groupId>javax.servlet</groupId><artifactId>javax.servlet-api</artifactId><version>4.0.1</version><scope>provided</scope>
-    </dependency>
-    <!-- 사용 중인 라이브러리들을 실제로 추가해야 빌드 성공 -->
+   <dependency>
+  <groupId>javax.servlet</groupId><artifactId>javax.servlet-api</artifactId>
+  <version>4.0.1</version><scope>provided</scope>
+</dependency>
+<dependency>
+  <groupId>javax.servlet.jsp</groupId><artifactId>javax.servlet.jsp-api</artifactId>
+  <version>2.3.3</version><scope>provided</scope>
+</dependency>
+<dependency>
+  <groupId>jstl</groupId><artifactId>jstl</artifactId><version>1.2</version>
+</dependency>
+
   </dependencies>
 </project>

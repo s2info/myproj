@@ -17,14 +17,13 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "11"     # 프로젝트 JDK에 맞게 8/11/17로 교체
+          java-version: "8"   # JDK 11에서 jaxb 제거됨. 우선 8로 맞춰 의존성 최소화
 
       - uses: github/codeql-action/init@v3
-        with:
-          languages: java
+        with: { languages: java }
 
-      # ⬇️ 수동 빌드(Autobuild 제거)
       - name: Build with Maven
+        working-directory: sdiag
         run: mvn -B -q -DskipTests package
 
       - uses: github/codeql-action/analyze@v3
