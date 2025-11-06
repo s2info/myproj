@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="exception">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="exceptionVO" type="sdiag.exception.service.ExceptionVO"/>
+	 
+	
+	
+	<!-- 예외처리 IP LIST -->
+	<select id="exception.getExceptionIpList" resultClass="exceptionVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			(SELECT COUNT(ip) FROM exception_ip WHERE sec_pol_id=c.sec_pol_id AND gubun='E') cnt
+		,c.*
+		FROM (
+	 		SELECT
+				A.sec_pol_id,
+				B.sec_pol_desc,
+				TO_CHAR(A.rgdt_date, 'YYYY-mm-dd') rgdt_date
+			FROM "exception_ip" A
+			LEFT JOIN "pol_idx" B ON A.sec_pol_id = B.sec_pol_id
+			where gubun='E'
+			GROUP BY A.sec_pol_id, B.sec_pol_desc,TO_CHAR(A.rgdt_date,'YYYY-mm-dd'), A.gubun
+			)c
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 예외처리 IP 총 갯수 -->
+	<select id="exception.getExceptionIpListTotalCount" resultClass="int">
+ 	<![CDATA[
+ 		Select count(c.sec_pol_id) from (SELECT
+			A.sec_pol_id,
+			B.sec_pol_desc,
+			TO_CHAR(A.rgdt_date, 'YYYY-mm-dd') rgdt_date
+		FROM "exception_ip" A
+		LEFT JOIN "pol_idx" B ON A.sec_pol_id = B.sec_pol_id
+		where A.gubun = 'E'
+		GROUP BY A.sec_pol_id, B.sec_pol_desc,A.rgdt_date, A.gubun) c
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 정책 리스트 조회 -->
+	<select id="exception.getPolIdxList" resultClass="exceptionVO">
+ 	<![CDATA[
+ 		SELECT
+			A.sec_pol_id,
+			A.sec_pol_desc
+		FROM "pol_idx" A
+		WHERE A.use_indc = 'Y'
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 예외처리 IP 정보 저장 -->
+	<insert id="exception.exceptionIpSave" parameterClass="exceptionVO" >
+ 	<![CDATA[
+ 		INSERT INTO "exception_ip" (sec_pol_id
+ 								, ip
+ 								, rgdt_date
+ 								,gubun)
+ 								VALUES
+ 								(#sec_pol_id# 
+ 								,#ip#
+ 								,NOW()
+ 								,'E'
+ 								);
+ 	]]>
+ 	</insert>
+ 	
+ 	<!-- 예외처리 IP 정보 조회 -->
+	<select id="exception.getExceptionIpInfo" parameterClass="exceptionVO" resultClass="exceptionVO">
+ 	<![CDATA[
+ 		SELECT
+			coalesce(A.sec_pol_id, '') sec_pol_id,
+			A.ip,
+			TO_CHAR(A.rgdt_date, 'YYYY-mm-dd') rgdt_date
+		FROM "exception_ip" A
+		WHERE A.sec_pol_id = #sec_pol_id#
+		AND gubun='E'
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 예외처리 IP 삭제 -->
+ 	<delete id="exception.exceptionIpDelete" parameterClass="exceptionVO" >
+ 	<![CDATA[
+ 		DELETE
+		FROM "exception_ip"
+		WHERE sec_pol_id = #sec_pol_id#
+ 	]]>
+ 	
+ 	</delete>
+ 	
+ 	
+ 	<!-- 예외처리 EmpNo LIST -->
+	<select id="exception.getExceptionEmpNoList" resultClass="exceptionVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			(SELECT COUNT(emp_no) FROM exception_empno WHERE sec_pol_id=c.sec_pol_id) cnt
+		,c.*
+		FROM (
+	 		SELECT
+				A.sec_pol_id,
+				B.sec_pol_desc,
+				TO_CHAR(A.rgdt_date, 'YYYY-mm-dd') rgdt_date
+			FROM "exception_empno" A
+			LEFT JOIN "pol_idx" B ON A.sec_pol_id = B.sec_pol_id
+			GROUP BY A.sec_pol_id, B.sec_pol_desc,TO_CHAR(A.rgdt_date,'YYYY-mm-dd')
+			)c
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 예외처리 EmpNo 총 갯수 -->
+	<select id="exception.getExceptionEmpNoListTotalCount" resultClass="int">
+ 	<![CDATA[
+ 		Select count(c.*) from (SELECT
+			A.sec_pol_id,
+			B.sec_pol_desc,
+			TO_CHAR(A.rgdt_date, 'YYYY-mm-dd') rgdt_date
+		FROM "exception_empno" A
+		LEFT JOIN "pol_idx" B ON A.sec_pol_id = B.sec_pol_id
+		GROUP BY A.sec_pol_id, B.sec_pol_desc,A.rgdt_date) c
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 예외처리 EmpNo 정보 저장 -->
+	<insert id="exception.exceptionEmpNoSave" parameterClass="exceptionVO" >
+ 	<![CDATA[
+ 		INSERT INTO "exception_empno" (sec_pol_id
+ 								, emp_no
+ 								, rgdt_date)
+ 								VALUES
+ 								(#sec_pol_id# 
+ 								,#emp_no#
+ 								,NOW()
+ 								);
+ 	]]>
+ 	</insert>
+ 	
+ 	<!-- 예외처리 EmpNo 정보 조회 -->
+	<select id="exception.getExceptionEmpNoInfo" parameterClass="exceptionVO" resultClass="exceptionVO">
+ 	<![CDATA[
+ 		SELECT
+			coalesce(A.sec_pol_id, '') sec_pol_id,
+			A.emp_no,
+			TO_CHAR(A.rgdt_date, 'YYYY-mm-dd') rgdt_date
+		FROM "exception_empno" A
+		WHERE A.sec_pol_id = #sec_pol_id#;
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 예외처리 EmpNo 삭제 -->
+ 	<delete id="exception.exceptionEmpNoDelete" parameterClass="exceptionVO" >
+ 	<![CDATA[
+ 		DELETE
+		FROM "exception_empno"
+		WHERE sec_pol_id = #sec_pol_id#;
+ 	]]>
+ 	
+ 	</delete>
+ 	
+ 	<!-- 사번 유효 체크 -->
+	<select id="exception.getOrgUserInfo" parameterClass="String" resultClass="int">
+ 	<![CDATA[
+ 		SELECT
+			COUNT(emp_no)
+		FROM "nx_org_user" 
+		WHERE emp_no = #empNo#;
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 아이피 중복 체크 -->
+	<select id="exception.exceptionIpCnt" parameterClass="exceptionVO" resultClass="int">
+ 	<![CDATA[
+ 		SELECT
+			COUNT(sec_pol_id)
+		FROM "exception_ip" 
+		WHERE sec_pol_id = #sec_pol_id#
+		AND ip = #ip#
+		AND gubun='E'
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 사번 중복 체크 -->
+	<select id="exception.exceptionEmpNoCnt" parameterClass="exceptionVO" resultClass="int">
+ 	<![CDATA[
+ 		SELECT
+			COUNT(sec_pol_id)
+		FROM "exception_empno" 
+		WHERE sec_pol_id = #sec_pol_id#
+		AND emp_no = #emp_no#;
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 메일예외처리 EmpNo LIST -->
+	<select id="exception.getExceptionMailList" resultClass="exceptionVO">
+ 	<![CDATA[
+ 		SELECT
+			(SELECT COUNT(emp_no) FROM mail_relay_exception WHERE op_indc=A.op_indc) cnt,
+ 			A.op_indc,
+			CASE A.op_indc WHEN '04' THEN '주간 보고서' WHEN '05' THEN '월간 보고서' ELSE '공지사항' END sec_pol_desc,
+			TO_CHAR(A.rgdt_date, 'YYYY-mm-dd') rgdt_date
+		FROM "mail_relay_exception" A
+		GROUP BY A.op_indc, TO_CHAR(A.rgdt_date,'YYYY-mm-dd')
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 메일예외처리 EmpNo 정보 저장 -->
+	<insert id="exception.exceptionMailSave" parameterClass="exceptionVO" >
+ 	<![CDATA[
+ 		INSERT INTO "mail_relay_exception" 
+ 			(op_indc
+ 			, emp_no
+ 			, rgdt_date)
+ 		VALUES
+ 			(#op_indc# 
+ 			,#emp_no#
+ 			,NOW());
+ 	]]>
+ 	</insert>
+ 	
+ 	<!-- 메일예외처리 EmpNo 정보 조회 -->
+	<select id="exception.getExceptionMailInfo" parameterClass="exceptionVO" resultClass="exceptionVO">
+ 	<![CDATA[
+ 		SELECT
+			A.op_indc,
+			A.emp_no,
+			TO_CHAR(A.rgdt_date, 'YYYY-mm-dd') rgdt_date
+		FROM "mail_relay_exception" A
+		WHERE A.op_indc = #op_indc#;
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 메일예외처리 EmpNo 삭제 -->
+ 	<delete id="exception.exceptionMailDelete" parameterClass="exceptionVO" >
+ 	<![CDATA[
+ 		DELETE
+		FROM "mail_relay_exception"
+		WHERE op_indc = #op_indc#
+ 	]]>
+ 	
+ 	</delete>
+ 	
+ 	<!-- 메일예외 사번 중복 체크 -->
+	<select id="exception.exceptionMailCnt" parameterClass="exceptionVO" resultClass="int">
+ 	<![CDATA[
+ 		SELECT
+			COUNT(op_indc)
+		FROM "mail_relay_exception" 
+		WHERE op_indc = #op_indc#
+		AND emp_no = #emp_no#;
+ 	]]>
+ 	</select>
+ 	
+</sqlMap>

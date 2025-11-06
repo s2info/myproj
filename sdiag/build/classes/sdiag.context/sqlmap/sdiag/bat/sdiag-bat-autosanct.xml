@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="auto">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="PolVO" type="sdiag.exanal.service.PolVO" />
+	<typeAlias alias="MailSendLogVO" type="sdiag.com.service.MailSendLogVO" />
+	<typeAlias alias="MemberVO" type="sdiag.member.service.MemberVO" />
+	<typeAlias alias="explainDataVO" type="sdiag.bat.service.ExplainDataVO" />
+	
+	<select id="--auto.selectsanctList--" parameterClass="PolVO" resultClass="egovMap">
+	<![CDATA[
+		select 
+		mac,
+		ip ipaddress,
+		sanc_kind block_type,
+		sanc_nm notice,
+		sanc_noti display,
+		'' exe_para,
+		'' list_pax_ip,
+		TRUE is_bother_on,
+		FALSE is_fast_operation,
+		'' sanc_id,
+		emp_no,
+		NOW() sanc_date,
+		NOW() updt_date,
+		FALSE is_read_indc
+		from (
+			select * from nx_user_idx_info
+			where idx_rgdt_date in ( 
+			select to_char((current_date - 1), 'YYYYMMDD')  
+			)
+		) I
+		left join pol_idx P on P.sec_pol_id = I.pol_idx_id
+		,sanc_type S
+		left join code_info C ON C.minr_code=S.sanc_kind
+		
+		where 1=1
+		
+		and P.use_indc = 'Y'
+		and P.sanc_cate = '0'
+		and P.appr_cate = '0'
+		and (i.score between S.sanc_scor_from and S.sanc_scor_to)
+		
+		and C.majr_code='S01'
+		and c.minr_code <> '00'
+		and c.use_indc='Y'
+	]]>
+	</select>
+	
+	<select id="auto.selectsanctList" parameterClass="PolVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT * FROM
+		(
+			WITH user_idx_pol AS (
+							SELECT * FROM nx_user_idx_info I, POL_IDX P
+							WHERE I.IDX_RGDT_DATE IN ( 
+													SELECT TO_CHAR((CURRENT_DATE - 1), 'YYYYMMDD')  
+													)
+							AND P.sec_pol_id = I.pol_idx_id
+							),
+			     sanc_code AS (
+							SELECT * FROM SANC_TYPE S, CODE_INFO C
+							WHERE C.MINR_CODE=S.SANC_KIND
+							)
+		    Select  
+			mac,
+			ip ipaddress,
+			pol_idx_id polidxid,
+			appr_line_code apprlinecode,
+			sanc_kind blocktype,
+			CASE WHEN (SELECT COUNT(1) FROM "expn" WHERE emp_no=user_idx_pol.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn,
+			sanc_nm notice,
+			sanc_noti display,
+			exe_para exepara,
+			TRUE isbotheron,
+			FALSE isfastoperation,
+			sanc_id sancid,
+			appr_id apprid,
+			emp_no empno,
+			idx_rgdt_date idxrgdtdate,
+			FALSE isreadindc,
+			sanc_cate sanccate,
+			appr_cate apprcate
+		
+		    FROM user_idx_pol, sanc_code
+			WHERE 1=1
+			AND appr_id is null
+			AND user_idx_pol.use_indc = 'Y'
+			AND (
+				( user_idx_pol.sanc_cate = '0' AND user_idx_pol.appr_cate = '0' )
+				OR
+				( user_idx_pol.sanc_cate = '0' AND user_idx_pol.appr_cate = '1' )
+				OR
+				( user_idx_pol.sanc_cate = '1' AND user_idx_pol.appr_cate = '0' )
+				
+			)
+			AND (user_idx_pol.score BETWEEN sanc_code.sanc_scor_from AND sanc_code.sanc_scor_to)
+		
+			AND sanc_code.majr_code='S01'
+			AND sanc_code.minr_code <> '00'
+			AND sanc_code.use_indc='Y'
+		) A
+		WHERE isexpn = 'N'
+	]]>
+	</select>
+	
+	<select id="auto.getCodeInfoForOne" parameterClass="java.util.HashMap" resultClass="egovMap">
+	<![CDATA[
+
+	 	SELECT majr_code majrcode, minr_code minrcode, code_desc codedesc, use_indc useindc, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date, add_info1 addinfo1
+		FROM "code_info"
+		WHERE majr_code=#majr_code# AND minr_code=#minr_code# AND use_indc='Y'
+	
+	]]>
+	</select>
+	
+ 	<!-- BPM Key 업데이트 -->
+	<update id="auto.setUpdateApprBpmKey" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "if_appr_info" 
+		SET appr_comment=#procid#
+		WHERE appr_id=#appr_id#;
+    ]]>   
+	</update>
+	
+	
+	<!-- BPM 로그 저장 -->
+<!-- 	<insert id="auto.InsertBPMLog" parameterClass="bpmLogVO"> -->
+<!-- 	<![CDATA[ -->
+<!-- 		INSERT INTO "if_bpm_log" (appr_id, emp_no, bpm_id, bpm_ret_code, rgdt_date, appr_commment, status_type) -->
+<!-- 		VALUES(#appr_id# -->
+<!-- 		, (SELECT emp_no FROM if_appr_info WHERE appr_id=#appr_id#) -->
+<!-- 		, #bpm_id#, #bpm_ret_code#, NOW(), #appr_commment#, #status_type#); -->
+<!-- 	]]> -->
+<!-- 	</insert> -->
+			
+	<insert id="auto.InsertMailLog" parameterClass="MailSendLogVO">
+	<![CDATA[
+		INSERT INTO "if_mail_relay" (email_rgdt_date, emp_no, to_email, subj_email, body_email, evid_file_name, updt_date, result, result_message)
+		VALUES(NOW(), #emp_no#, #to_email#, #subj_email#, #body_email#, #evid_file_name#, NOW(), #result#, #result_message#);
+	]]>
+	</insert>		
+	
+	<!-- 결재 라인 구성을 위한 직/차 상급자 조회 -->
+	<select id="auto.getApprLineUserInfo" parameterClass="java.util.HashMap" resultClass="egovMap">
+ 		<![CDATA[
+ 		SELECT empno1 empno
+ 		, coalesce(empno2, '') upper1
+ 		, coalesce(empno3, '') upper2
+ 		, msg 
+		FROM fn_nx_get_apprlineempno(#empno#, #apprlinecode#);
+ 		]]>
+ 	</select>
+ 	
+	<!-- 사용자 정보 조회 -->	
+	<select id='auto.getOrgUserInfo' parameterClass="java.lang.String"  resultClass="MemberVO">
+	<![CDATA[
+ 		SELECT emp_no userid
+ 			, emp_nm username
+ 			, email email
+ 			, org_code orgcode
+ 			, title_code titlecode
+ 			, title_nm titlename
+ 			, level_code levelcode
+ 			, level_nm levelname
+ 			, comp_code isEmp
+		FROM "nx_org_user" 
+		WHERE emp_no=#emp_no#
+	]]>
+	</select>
+	<!-- 로그저장 -->
+	<insert id="auto.InsertAutobatLog" parameterClass="java.util.HashMap">
+	<![CDATA[
+		INSERT INTO autobat_log (rgdt_date, emp_no, comment, log_type)
+		VALUES(NOW(), #emp_no#, #comment#, #log_type#);
+	]]>
+	</insert>	
+	 		
+	<!-- 상무이상(상무대무자이상) 메일 전송 -->	
+	<select id='auto.getAutoBatMailSendList' resultClass="java.util.HashMap">
+	<![CDATA[
+ 		WITH LIST(emp_no, emp_nm, email)AS(
+			SELECT emp_no,
+			emp_nm,
+			email
+			FROM nx_org_user
+			WHERE title_code <= '006' AND title_code <> ''
+			UNION ALL
+			SELECT P.proxy_emp_no emp_no,
+			U2.emp_nm,
+			U2.email
+			FROM proxy P
+			LEFT JOIN nx_org_user U1 ON P.emp_no=U1.emp_no
+			LEFT JOIN nx_org_user U2 ON P.proxy_emp_no=U2.emp_no
+			WHERE U1.title_code <= '006' AND U1.title_code <> ''
+		)SELECT DISTINCT emp_no, emp_nm, email
+		, coalesce((SELECT code_desc FROM code_info WHERE majr_code='CAL' AND minr_code='01'), '****') call_addr
+		 FROM LIST
+	]]>
+	</select> 		
+	 <!-- TEST 메일 전송 -->	
+	<select id='auto.getAutoBatMailSendListTest' resultClass="java.util.HashMap">
+	<![CDATA[
+ 		WITH LIST(emp_no, emp_nm, email)AS(
+			SELECT emp_no, emp_nm, email FROM nx_org_user WHERE emp_no='10094743' UNION ALL
+			SELECT emp_no, emp_nm, email FROM nx_org_user WHERE emp_no='91117654' UNION ALL
+			SELECT emp_no, emp_nm, email FROM nx_org_user WHERE emp_no='admin'
+		)SELECT DISTINCT emp_no, emp_nm, email
+		, coalesce((SELECT code_desc FROM code_info WHERE majr_code='CAL' AND minr_code='01'), '****') call_addr
+		FROM LIST
+	]]>
+	</select> 	
+	<!-- 자동소명 발송리스트 조회 -->
+	<select id='auto.getExplainDataList' resultClass="explainDataVO">
+	<![CDATA[
+ 		WITH APPRLIST AS(
+		SELECT  i.idx_rgdt_date
+			, i.emp_no
+			, i.pol_idx_id
+			, i.mac
+			, i.ip
+			, i.appr_stat_code
+			, i.score
+			, i.count
+			, i.sanc_date
+			, i.sanc_id
+			, i.sanc_indc
+			, i.sol_id
+			, coalesce(i.appr_id, '') appr_id
+			, i.pcg_act_id
+			, CASE WHEN (SELECT COUNT(1) FROM expn WHERE emp_no=i.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			, to_char(org_eventdate, 'YYYYMMDD') eventdate
+			, (SELECT COUNT(1) FROM nx_user_idx_info WHERE emp_no=i.emp_no AND pol_idx_id=i.pol_idx_id AND appr_id is not null AND  to_char(org_eventdate, 'YYYYMMDD') = to_char(i.org_eventdate, 'YYYYMMDD')) appr_cnt
+			, p.sec_pol_desc
+			, p.sec_pol_sql
+			, p.appr_line_code
+			, p.appr_note
+			, p.sec_pol_notice
+			, p.reason
+			FROM nx_user_idx_info i
+			INNER JOIN pol_idx p ON P.sec_pol_id = i.pol_idx_id
+			WHERE p.use_indc='Y' AND p.appr_cate='0' AND appr_id is null AND i.idx_rgdt_date=to_char((CURRENT_DATE - 1), 'YYYYMMDD')
+			AND i.score <= (SELECT add_info1::integer FROM code_info WHERE majr_code='RPT' AND minr_code='ACV')
+		)
+		SELECT * FROM APPRLIST L
+		WHERE L.isexpn='N' AND L.appr_cnt=0;
+	]]>
+	</select> 			
+</sqlMap>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+	 
+	<bean name="propertiesService" class="egovframework.rte.fdl.property.impl.EgovPropertyServiceImpl" destroy-method="destroy">
+		<property name="properties">
+			<map>
+	        	<entry key="pageUnit" value="10"/>
+	        	<entry key="pageSize" value="10"/>
+	        	<entry key="orgRoot" value="000001"/>
+	        	<entry key="handyPageUnit" value="50"/>
+	        	<entry key="handyPageSize" value="50"/>
+			</map>
+		</property>
+	</bean> 
+	
+	<bean name="propertiesService1" class="egovframework.rte.fdl.property.impl.EgovPropertyServiceImpl" destroy-method="destroy">
+		<property name="extFileName">
+		<set>
+			 <value>classpath:/sdiag.context/props/globals.properties</value>
+		</set>
+			
+		</property>
+	</bean> 
+</beans>	
+
+

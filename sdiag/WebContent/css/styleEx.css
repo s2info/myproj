@@ -1,0 +1,5 @@
+@charset "utf-8";
+
+.sel_text {cursor:pointer;}
+.sel_text:hover{color:blue;font-weight:bold;}
+.sel_text .ON{color:red;font-weight:bold;}

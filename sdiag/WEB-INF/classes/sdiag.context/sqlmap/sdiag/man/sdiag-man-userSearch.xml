@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="userSearch">
+	<typeAlias alias="userSearchInfoVO" type="sdiag.man.service.UserSearchInfoVO"/>
+	<typeAlias alias="searchVO" type="sdiag.man.service.SearchVO"/>
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+	<!-- 사용자 정보 LIST -->
+	<select id="userSearch.getUserList" parameterClass="searchVO"  resultClass="userSearchInfoVO">
+ 	<![CDATA[
+ 		SELECT  emp_no AS empNo
+ 		        , emp_nm AS empNm
+ 		        , posn_nm AS posnNm
+		 FROM 	  nx_org_user
+		WHERE 	  emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+ 		order by emp_no, org_code asc
+ 	]]>	
+		
+ 	</select>
+ 	
+ 	<!-- 사용자 정책 조회 -->
+	<select id="userSearch.getUserPolList" parameterClass="searchVO"  resultClass="userSearchInfoVO">
+ 	<![CDATA[
+ 		SELECT ou.emp_no AS empNo, 
+			ou.emp_nm AS empNm, 
+			ou.posn_nm AS posnNm, 
+			pt.sec_pol_id AS secPolId, 
+			pi.sec_pol_desc AS secPolDesc 
+		FROM nx_org_user ou, 
+			pol_target_master pt, 
+			pol_idx pi
+		WHERE pt.emp_no = #searchKeyword#
+		AND pt.emp_no = ou.emp_no
+		AND pt.sec_pol_id = pi.sec_pol_id
+		ORDER BY ou.emp_no, ou.org_code asc
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 사용자 예외 정책 조회 -->
+	<select id="userSearch.getUserExPolList" parameterClass="searchVO" resultClass="userSearchInfoVO">
+	<![CDATA[
+		SELECT ou.emp_no AS empNo, 
+			ou.emp_nm AS empNm, 
+			ou.posn_nm AS posnNm, 
+			ex.sec_pol_id AS secPolId, 
+			pi.sec_pol_desc AS secPolDesc 
+		FROM nx_org_user ou, 
+			exception_empno ex, 
+			pol_idx pi
+		WHERE ex.emp_no = #searchKeyword#
+		AND ex.emp_no = ou.emp_no
+		AND ex.sec_pol_id = pi.sec_pol_id
+		ORDER BY ou.emp_no, ou.org_code asc
+	]]>	
+	</select>
+	
+	<!-- 사용자 추가를 위한 사원검색 -->
+	<select id='userSearch.getUserGroupList' parameterClass="java.util.HashMap" resultClass="userSearchInfoVO">
+ 		SELECT gd.group_code AS groupCode, 
+			gi.group_nm AS groupNm, 
+			gd.org_info AS orgInfo, 
+			case       
+			    WHEN gd.org_type = '1' THEN '개인'         
+	            WHEN gd.org_type = '2' THEN '조직'              
+	            WHEN gd.org_type = '3' THEN '취약자'
+	            WHEN gd.org_type = '4' THEN '협력사' 
+	            WHEN gd.org_type = '5' THEN '복무정보'
+			end as orgType, 
+			gd.org_nm AS orgNm
+		FROM group_detail_info gd, 
+			group_info gi 
+		WHERE 1=1
+		<iterate property="orgGroupList" prepend="AND gd.org_info in" open="(" conjunction="," close=")">#orgGroupList[]#</iterate>
+		AND gd.group_code = gi.group_code
+		ORDER BY gi.group_code
+	</select>	
+	
+	<!-- 사용자 추가전 중복 아이디 체크 -->
+	<select id='userSearch.getUserGroup' parameterClass="searchVO" resultClass="egovMap">
+	<![CDATA[
+ 		SELECT coalesce(org_code_0, '') org_code_0,
+			coalesce(org_code_1, '') org_code_1,
+			coalesce(org_code_2, '') org_code_2,
+			coalesce(org_code_3, '') org_code_3,
+			coalesce(org_code_4, '') org_code_4,
+			coalesce(org_code_5, '') org_code_5,
+			coalesce(org_code_6, '') org_code_6,
+			coalesce(org_code_7, '') org_code_7
+		FROM nx_org_user_hier
+		WHERE emp_no = #searchKeyword#
+	]]>
+	</select>
+	
+	
+	<!-- 사용자 예외 정책 저장 -->
+	<insert id='userSearch.setPolExInsert' parameterClass="userSearchInfoVO" >
+	<![CDATA[
+ 		INSERT INTO "exception_empno" (sec_pol_id
+ 								, emp_no
+ 								, rgdt_date)
+ 								select
+ 								#secPolId# 
+ 								,#empNo#
+ 								,rgdt_date 
+ 								from exception_empno
+ 								where sec_pol_id = #secPolId# 
+ 								group by rgdt_date ;
+ 		DELETE FROM  pol_target_master WHERE  sec_pol_id = #secPolId# AND emp_no = #empNo#;
+	]]>
+	</insert>
+	
+	<!-- 사용자 예외 정책 삭제 -->
+	<delete id='userSearch.setPolExDelete' parameterClass="userSearchInfoVO" >
+	<![CDATA[
+ 		DELETE FROM  "exception_empno" 
+ 		WHERE sec_pol_id = #secPolId#
+ 		AND emp_no = #empNo#;
+ 		
+ 		INSERT INTO pol_target_master(
+            sec_pol_id, emp_no, rgdt_date)
+   		VALUES (#secPolId#, #empNo#, NOW());
+ 		
+	]]>
+	</delete>
+	
+		<!-- 사용자 그룹 삭제 -->
+	<delete id='userSearch.setGroupDelete' parameterClass="userSearchInfoVO" >
+	<![CDATA[
+ 		DELETE FROM  "group_detail_info" 
+ 		WHERE org_info = #orgInfo#
+ 		AND group_code = #groupCode#::int
+ 		AND org_type = '1'
+	]]>
+	</delete>
+</sqlMap>

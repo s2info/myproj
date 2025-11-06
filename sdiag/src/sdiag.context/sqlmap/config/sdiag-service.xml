@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMapConfig PUBLIC "-//iBATIS.com//DTD SQL Map Config 2.0//EN"
+    "http://www.ibatis.com/dtd/sql-map-config-2.dtd">
+
+<sqlMapConfig>						
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/service/sdiag-service-pol.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/service/sdiag-service-dash.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/service/sdiag-service-login.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/service/sdiag-service-common.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/service/sdiag-service-exanal.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/service/sdiag-service-report.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/service/sdiag-service-serverAnal.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/service/sdiag-service-serverDiag.xml"/>
+</sqlMapConfig>

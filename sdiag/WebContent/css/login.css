@@ -1,0 +1,181 @@
+@charset "utf-8";
+/* CSS Document */
+
+html,body { margin:0; padding:0; color:#666;}
+body {width:100%;height:100%;min-width:1280px;color:#666; font-size:12px;font-family:돋움, Dotum, Verdana, sans-serif; -webkit-text-size-adjust:none;background:#f3f3f3;}
+
+body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,code,form,fieldset,legend,input,textarea,p,blockquote,th,td{ margin:0; padding:0; }
+table { border-collapse:collapse; border-spacing:0; }
+caption {visibility:hidden; font-size:0; width:0; height:0; line-height:0}
+
+fieldset,img,iframe { border:0; }
+button { margin:0; padding:0; border:none; cursor:pointer;vertical-align:top; font-family:돋움, Dotum, Verdana, sans-serif; }
+h1,h2,h3,h4,h5,h6{ font-size:100%; font-weight:normal; font-family:돋움, dotum, Verdana, sans-serif; }
+h4 {display:none;}
+li,dt,dd {list-style:none;}
+li,dt,dd,img,p {display:inline;padding:0;margin:0;border:0;}
+input,select { vertical-align:middle; }
+input,textarea,select{ font-family:inherit; font-size:inherit; font-weight:inherit; }
+textarea {resize:none;}
+a {text-decoration:none;}
+
+#etc_header {position:relative;height:55px;background:#ffffff;z-index:1000;width:100%;min-width:1280px;margin:0 auto;border-bottom:solid 2px #5499de;}
+/***** header area *****/
+.gnb_block {
+	position:relative;
+	width:100%;
+	height:50px;
+}
+#etc_header h1 {width:100%;height:40px;background:url('/img/top_logo.png') no-repeat 10px center;text-indent:-9999px;margin:15px 0 0 10px;}
+
+/***E : left menu ****/
+.etc_area {
+  width:100%;
+  transition: all 0.15s ease-in-out;
+  top:0;
+  margin:0 auto 0 auto;
+  text-align:center;
+  color:#5499de;
+}
+.etc_area h2 {
+	font:bold 40px "맑은 고딕";color:#5499de;
+	padding:150px 0 50px 0;
+}
+div.login_block {
+	width:600px;
+	background:#ffffff;
+	margin:0 auto;
+	padding:50px 20px;
+	box-shadow: 0px 0px 20px rgba(0,0,0,0.24), 0px 0px 20px rgba(0,0,0,0.24);
+	border-top:solid 3px #5298b6;
+}
+.etc_area div.login_block p {
+	display:block;
+	margin:30px 0;
+}
+.etc_block {
+  width:100%;
+  transition: all 0.15s ease-in-out;
+  top:0;
+  margin:0 auto 0 auto;
+  text-align:center;
+  color:#393939;
+}
+.etc_block h2 {
+	font:bold 30px "맑은 고딕";
+	color:#5499de;
+	padding:10px 0 50px 0;
+}
+.etc_block img { 
+	padding:100px 0 0 0;
+}
+.etc_block li {
+	display:block;
+	line-height:18px;
+	font:normal 15px "맑은 고딕";
+}
+.etc_block li.cell1 {
+	margin-top:20px;
+}
+div.etc_box {
+	width:600px;
+	background:#ffffff;
+	margin:0 auto;
+	padding:50px 20px;
+	box-shadow: 0px 0px 10px rgba(0,0,0,0.24), 0px 0px 10px rgba(0,0,0,0.24);
+	border-top:solid 3px #5499de;
+}
+.etc_area div.etc_box p {
+	display:block;
+	margin:30px 0;
+}
+
+/***S : footer****/
+.footer {
+	margin-top:20px;
+	font-size:12px;
+	text-align:center;
+	z-index:9999;
+	color:#898989;
+}
+.footer span {
+	font:bold 11px '돋움';color:#ff6565;
+}
+/***E : footer****/
+
+
+#etc_footer {height:30px;width:auto;bottom:0;clear:both;text-align:center;padding:20px 0;margin:0 auto;color:#878b93;}
+#etc_header h1 {width:1240px;height:50px;margin:0;font:bold 18px "맑은 고딕";color:#ffffff;letter-spacing:-0.5pt;line-height:46px;margin:0 auto;}
+#etc_header h1 span {color:#fff600;}
+#etc_header h1 img {margin-right:5px;}
+
+input.loginid {font:normal 16px "맑은 고딕";width:400px;height:40px;border:0px;border-bottom:solid 3px #707c7d;padding:0 10px 0 127px;vertical-align:top;background: url(/img/icon_login_user_off.png) no-repeat center left;display:inline;color:#7e8c8d;}
+input.loginid:hover {border-bottom:solid 3px #5499de;color:#5298b6;vertical-align:top;background:url(/img/icon_login_user_on.png) no-repeat center left;}
+input.loginid:focus {border-bottom:solid 3px #5499de;color:#707c7d;vertical-align:top;background:url(/img/icon_login_user_on.png) no-repeat center left;}
+
+input.loginpw {font:normal 16px "맑은 고딕";width:400px;height:40px;border:0px;border-bottom:solid 3px #707c7d;padding:0 10px 0 127px;vertical-align:top;background: url(/img/icon_login_pw_off.png) no-repeat center left;display:inline;color:#7e8c8d;}
+input.loginpw:hover {border-bottom:solid 3px #5499de;color:#5298b6;vertical-align:top;background:url(/img/icon_login_pw_on.png) no-repeat center left;}
+input.loginpw:focus {border-bottom:solid 3px #5499de;color:#707c7d;vertical-align:top;background:url(/img/icon_login_pw_on.png) no-repeat center left;}
+
+.btn_login {
+	width:300px;
+	color:#ffffff;
+	background: #5298b6;
+	background: -moz-linear-gradient(top, #5499de) 0%, #4b8cce 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#5499de, color-stop(100%,#4b8cce));
+	background: -webkit-linear-gradient(top, #5499de) 0%,#4b8cce 100%);
+	background: -ms-linear-gradient(top, #5499de 0%,#4b8cce 100%);
+	background: linear-gradient(top, #5499de) 0%,#4b8cce 100%);	
+	display:inline-block;
+	padding:10px 15px 8px 15px;
+	border-radius:5px;
+	cursor: pointer;
+	text-align: center;
+	text-decoration: none;
+	font:bold 16px "맑은 고딕";
+	line-height:28px;
+	box-shadow: 0px 5px 10px rgba(0,0,0,0.24);
+}
+.btn_login:hover {
+	color:#ffffff;	
+	background: #4b8cce;
+	background: -moz-linear-gradient(top, #4b8cce) 0%, #5499de 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#4b8cce), color-stop(100%,#5499de));
+	background: -webkit-linear-gradient(top, #4b8cce) 0%,#5499de 100%);
+	background: -ms-linear-gradient(top, #4b8cce 0%,#5499de 100%);
+	background: linear-gradient(top, #4b8cce) 0%,#5499de 100%);	
+	*display: inline;
+}
+.btn_etc {
+	width:50px;
+	color:#ffffff;
+	background: #484848;
+	background: -moz-linear-gradient(top, #484848) 0%, #333333 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#484848, color-stop(100%,#333333));
+	background: -webkit-linear-gradient(top, #484848) 0%,#333333 100%);
+	background: -ms-linear-gradient(top, #484848 0%,#333333 100%);
+	background: linear-gradient(top, #484848) 0%,#333333 100%);	
+	display:inline-block;
+	padding:5px 15px 8px 15px;
+	border-radius:5px;
+	cursor: pointer;
+	text-align: center;
+	text-decoration: none;
+	font:bold 14px "맑은 고딕";
+	line-height:18px;
+	box-shadow: 0px 5px 10px rgba(0,0,0,0.24);
+	border-top:solid 1px #939393;
+	border-left:solid 1px #939393;
+	border-bottom:solid 1px #2c2c2c;
+	border-right:solid 1px #2c2c2c;
+}
+.btn_etc:hover {
+	color:#ffffff;	
+	background: #333333;
+	background: -moz-linear-gradient(top, #333333) 0%, #484848 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#333333), color-stop(100%,#5298b6));
+	background: -webkit-linear-gradient(top, #333333) 0%,#484848 100%);
+	background: -ms-linear-gradient(top, #333333 0%,#484848 100%);
+	background: linear-gradient(top, #333333) 0%,#484848 100%);	
+	*display: inline;
+}

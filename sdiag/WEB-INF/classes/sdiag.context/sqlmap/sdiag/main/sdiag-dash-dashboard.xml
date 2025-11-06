@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="dashboard">
+	<typeAlias alias="dashboardSearchVO" type="sdiag.dash.service.DashboardSearchVO" />
+	<typeAlias alias="userIdxInfo" type="sdiag.main.service.UserMainIdxInfoVO"/>
+	<typeAlias alias="userPolIdxInfoVO" type="sdiag.main.service.UserPolIdxInfoVO" />
+	<!-- 마지막 날짜 점수 조회 -->
+	<select id="dashboard.getLastUserCollectScore" parameterClass="dashboardSearchVO" resultClass="userIdxInfo">
+ 	<![CDATA[
+		WITH userIdx(rgdt_date, emp_no, scor_curr, score, u_org_code, u_org_nm, up_org_code, up_org_nm, collabor_org_code, collabor_org_nm, iscollabor,iscollabor_cap)AS
+		(
+			SELECT
+			(SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_total_sum_info)
+			, u.emp_no 
+			, coalesce(trunc(ROUND(avg(d.scor_curr), 3)), -999)
+			, coalesce(trunc(ROUND(avg(d.score), 3)), -999) 
+			, ug.org_code
+			, ug.org_nm
+			, upg.org_code
+			, upg.org_nm
+			, u.org_code
+			, c.org_nm
+			, coalesce(u.is_collabor, '')
+			, CASE WHEN u.is_collabor = 'N' AND substr(u.org_code,1,3) = 'COL' THEN 'Y' ELSE 'N' END 
+			FROM nx_org_user u 
+			LEFT JOIN nx_org_group ug ON ug.org_code=u.origin_org_code
+			LEFT JOIN nx_org_group upg ON upg.org_code = coalesce(ug.upper_org_code, '000001')
+			LEFT JOIN nx_org_group c ON c.org_code=u.org_code
+			LEFT JOIN nx_user_idx_info_day d ON d.emp_no=u.emp_no AND d.idx_rgdt_date = (SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_total_sum_info)
+			WHERE u.emp_no = #emp_no#
+			GROUP BY d.idx_rgdt_date, u.emp_no, u.org_code, ug.org_code, ug.org_nm, upg.org_code, upg.org_nm, u.is_collabor, c.org_nm
+		)SELECT L.rgdt_date
+				, substr(L.rgdt_date,1,4) || '-' || substr(L.rgdt_date,5,2) || '-' || substr(L.rgdt_date,7,2) day_val
+				, L.emp_no
+				, L.scor_curr
+				, L.score
+				, fn_get_scoretocodename(L.score) emp_scorestat_name
+				, fn_get_scoretocodecolor(L.score) emp_scorestat_color
+				, U.emp_nm
+				, U.email
+				, coalesce(UORG.org_code, L.u_org_code) u_org_code
+				, coalesce(UORG.org_nm, L.u_org_nm) u_org_nm
+				, coalesce(UORG.tot_emp, 0) u_tot_emp
+				, coalesce(UORG.avg, 100) u_avg
+				, fn_get_scoretocodename(coalesce(UORG.avg, 100)) u_scorestat_name
+				, fn_get_scoretocodecolor(coalesce(UORG.avg, 100)) u_scorestat_color
+				, coalesce(UPORG.org_code, L.up_org_code) upper_org_code
+				, coalesce(UPORG.org_nm, L.up_org_nm) upper_org_nm
+				, coalesce(UPORG.tot_emp, 0) upper_org_tot_emp
+				, coalesce(UPORG.avg, 100) upper_avg
+				, fn_get_scoretocodename(coalesce(UORG.avg, 100)) upper_scorestat_name
+				, fn_get_scoretocodecolor(coalesce(UORG.avg, 100)) upper_scorestat_color
+				, coalesce(RORG.avg, 0) avg_val
+				, fn_get_scoretocodename(RORG.avg) scorestat_name
+				, fn_get_scoretocodecolor(RORG.avg) scorestat_color
+				, L.collabor_org_code
+				, L.iscollabor
+				, L.iscollabor_cap
+				, coalesce(CORG.org_code, L.collabor_org_code) collabor_org_code
+				, coalesce(CORG.org_nm, L.collabor_org_nm) collabor_org_nm
+				, coalesce(CORG.tot_emp, 0) collabor_org_tot_emp
+				, coalesce(CORG.avg, 0) collabo_avg_val
+				, fn_get_scoretocodename(CORG.avg) collabo_scorestat_name
+				, fn_get_scoretocodecolor(CORG.avg) collabo_scorestat_color
+		FROM userIdx L
+		INNER JOIN nx_org_user U ON U.emp_no=L.emp_no
+		LEFT JOIN nx_total_sum_info UORG ON UORG.org_code=U.origin_org_code AND UORG.sum_rgdt_date=L.rgdt_date
+		LEFT JOIN nx_total_sum_info UPORG ON UPORG.org_code=(SELECT CASE WHEN upper_org_code = '000000' THEN '000001' ELSE  coalesce(upper_org_code, '000001') END FROM nx_org_group WHERE org_code=L.u_org_code) AND UPORG.sum_rgdt_date=L.rgdt_date
+		LEFT JOIN nx_total_sum_info RORG ON RORG.org_code=#org_root_code# AND RORG.sum_rgdt_date=L.rgdt_date
+		LEFT JOIN nx_total_sum_info CORG ON CORG.org_code=L.collabor_org_code AND CORG.sum_rgdt_date=L.rgdt_date
+		WHERE U.stat='1'
+ 	]]>
+ 	</select>
+	<!-- 개인 - 마지막 날짜 정책별 점수 조회 [가중치 미적용]-->
+	<select id="dashboard.getLastUserPolicyScore" parameterClass="dashboardSearchVO" resultClass="userPolIdxInfoVO">
+ 	<![CDATA[
+		WITH LIST(diag_majr_code, diag_desc, polCnt, buseo_indc, diag_icon_info)
+		AS(
+			 SELECT
+			        D.diag_majr_code,
+			        D.diag_desc,
+					(SELECT COUNT(*) FROM pol_idx P WHERE P.diag_majr_code=D.diag_majr_code AND P.use_indc='Y') polCnt,
+					D.buseo_indc,
+					coalesce(D.icon_info, 'img_icon6.png') 
+			 FROM  diag_item_code D
+			 WHERE  D.use_indc='Y'     
+			        AND D.diag_majr_code=D.diag_minr_code     
+			        AND D.buseo_indc = 'N'   
+			 ORDER BY D.diag_majr_code  
+		)SELECT 
+				(SELECT org_code FROM nx_org_user u WHERE u.emp_no=#emp_no#) org_code
+				, L.diag_majr_code, L.diag_desc, L.diag_icon_info
+				, coalesce(C.totcount::varchar, '-') count
+				, coalesce(trunc(C.avgscore)::varchar, '0') score
+				, coalesce(trunc(C.avgscore)::varchar, '-') avg_score
+				, L.buseo_indc
+				, fn_get_scoretocode(C.avgscore) scorestat
+				, fn_get_scoretocodename(C.avgscore) scorestat_name
+				, fn_get_scoretocodecolor(C.avgscore) scorestat_color
+				, coalesce(substr(C.idx_rgdt_date,1,4) || '-' || substr(C.idx_rgdt_date,5,2) || '-' || substr(C.idx_rgdt_date,7,2), '') search_rgdt_date
+		FROM LIST L
+		LEFT JOIN 
+			(SELECT P.diag_majr_code
+				, I.idx_rgdt_date
+				, coalesce(SUM(I.count), -999) totcount
+				, coalesce(trunc(round(avg(I.score),3)), -999) avgscore
+			 FROM pol_idx P
+			 LEFT JOIN nx_user_idx_info I 
+			 ON I.pol_idx_id = P.sec_pol_id        
+			 AND I.emp_no = #emp_no#
+			 AND I.idx_rgdt_date = (SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info)
+			 WHERE P.use_indc='Y'
+			 GROUP BY P.diag_majr_code, I.idx_rgdt_date ) C ON C.diag_majr_code=L.diag_majr_code
+		WHERE C.idx_rgdt_date IS NOT NULL;	
+ 	]]>
+ 	</select>
+	<!-- 부서장 마지막 날짜 정책별 점수 조회 [가중치 미적용]-->
+	<select id="dashboard.getLastOrgPolicyScore" parameterClass="dashboardSearchVO" resultClass="userPolIdxInfoVO">
+ 	<![CDATA[
+ 		SELECT coalesce(L.org_code, #org_code#) org_code
+ 				, CASE WHEN (SELECT COUNT(1) FROM nx_org_group g WHERE g.upper_org_code=#org_code# AND g.use_indc='1' AND g.is_collabor='N') > 0 THEN 'Y' ELSE 'N' END is_sub_org
+ 				, '' AS diag_majr_code, L.org_nm AS diag_desc, 'icon_blue_2.png' AS diag_icon_info
+				, coalesce(L.tot_emp::varchar, '-') count
+				, coalesce(L.avg::varchar, '0') score
+				, coalesce(L.avg::varchar, '-') avg_score
+				, 'N' buseo_indc
+				, fn_get_scoretocode(L.avg) scorestat
+				, fn_get_scoretocodename(L.avg) scorestat_name
+				, fn_get_scoretocodecolor(L.avg) scorestat_color
+				, coalesce(substr(L.sum_rgdt_date,1,4) || '-' || substr(L.sum_rgdt_date,5,2) || '-' || substr(L.sum_rgdt_date,7,2), '') search_rgdt_date
+		FROM nx_total_sum_info L
+		WHERE L.org_code =  #org_code# 
+		AND L.sum_rgdt_date = (SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_total_sum_info)
+		UNION ALL
+		SELECT L1.* FROM (
+			WITH LIST(diag_majr_code, diag_desc, polCnt, buseo_indc, diag_icon_info)
+			AS(
+			 SELECT
+			        D.diag_majr_code,
+			        D.diag_desc,
+					(SELECT COUNT(*) FROM pol_idx P WHERE P.diag_majr_code=D.diag_majr_code AND P.use_indc='Y') polCnt,
+					D.buseo_indc,
+					coalesce(D.icon_info, 'img_icon6.png')
+			 FROM  diag_item_code D
+			 WHERE  D.use_indc='Y'     
+			        AND D.diag_majr_code=D.diag_minr_code     
+			        AND D.buseo_indc = 'N'   
+			 ORDER BY D.diag_majr_code  
+			)SELECT coalesce(C.org_code, #org_code#) org_code
+				, CASE WHEN (SELECT COUNT(1) FROM nx_org_group g WHERE g.upper_org_code=#org_code# AND g.use_indc='1' AND g.is_collabor='N') > 0 THEN 'Y' ELSE 'N' END is_sub_org
+				, L.diag_majr_code, L.diag_desc, L.diag_icon_info
+				, coalesce(C.totcount::varchar, '-') count
+				, coalesce(C.avgscore::varchar, '0') score
+				, coalesce(C.avgscore::varchar, '-') avg_score
+				, L.buseo_indc
+				, fn_get_scoretocode(C.avgscore) scorestat
+				, fn_get_scoretocodename(C.avgscore) scorestat_name
+				, fn_get_scoretocodecolor(C.avgscore) scorestat_color
+				, coalesce(substr(C.sum_rgdt_date,1,4) || '-' || substr(C.sum_rgdt_date,5,2) || '-' || substr(C.sum_rgdt_date,7,2), '') search_rgdt_date
+			FROM LIST L
+			LEFT JOIN 
+			(SELECT I.org_code, P.diag_majr_code, I.sum_rgdt_date, SUM(I.tot_count) totcount, trunc(round(avg(coalesce(I.avg, 100)),3)) avgscore
+			 FROM pol_idx P
+			 LEFT JOIN nx_pol_sum_info I 
+			 ON I.pol_idx_id = P.sec_pol_id        
+			 AND I.org_code = #org_code# 
+			 AND I.sum_rgdt_date =(SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_pol_sum_info)
+			 WHERE P.use_indc='Y' AND I.org_code IS NOT NULL
+			 GROUP BY I.org_code, P.diag_majr_code, I.sum_rgdt_date ) C ON C.diag_majr_code=L.diag_majr_code) L1
+		UNION ALL
+		SELECT L2.* FROM (
+			WITH LIST(diag_majr_code, diag_desc, polCnt, buseo_indc, diag_icon_info)
+			AS(
+			 SELECT
+			        D.diag_majr_code,
+			        D.diag_desc,
+					(SELECT COUNT(*) FROM pol_idx P WHERE P.diag_majr_code=D.diag_majr_code AND P.use_indc='Y') polCnt,
+					D.buseo_indc,
+					coalesce(D.icon_info, 'img_icon6.png') 
+			 FROM  diag_item_code D
+			 WHERE  D.use_indc='Y'     
+			        AND D.diag_majr_code=D.diag_minr_code     
+			        AND D.buseo_indc = 'Y'   
+			 ORDER BY D.diag_majr_code  
+			)SELECT coalesce(C.org_code, #org_code#) org_code
+				, CASE WHEN (SELECT COUNT(1) FROM nx_org_group g WHERE g.upper_org_code=#org_code# AND g.use_indc='1' AND g.is_collabor='N') > 0 THEN 'Y' ELSE 'N' END is_sub_org
+				, L.diag_majr_code, L.diag_desc, L.diag_icon_info
+				, coalesce(C.totcount::varchar, '-') count
+				, coalesce(C.avgscore::varchar, '0') score
+				, coalesce(C.avgscore::varchar, '-') avg_score
+				, L.buseo_indc
+				, fn_get_scoretocode(C.avgscore) scorestat
+				, fn_get_scoretocodename(C.avgscore) scorestat_name
+				, fn_get_scoretocodecolor(C.avgscore) scorestat_color
+				, coalesce(substr(C.sum_rgdt_date,1,4) || '-' || substr(C.sum_rgdt_date,5,2) || '-' || substr(C.sum_rgdt_date,7,2), '') search_rgdt_date
+			FROM LIST L
+			LEFT JOIN 
+			(SELECT I.org_code, P.diag_majr_code, I.sum_rgdt_date, SUM(I.tot_count) totcount, trunc(round(avg(coalesce(I.avg, 100)),3)) avgscore
+			 FROM pol_idx P
+			 LEFT JOIN buseo_pol_sum_info I 
+			 ON I.pol_idx_id = P.sec_pol_id        
+			 AND I.org_code = #org_code# 
+			 AND I.sum_rgdt_date =(SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM buseo_pol_sum_info)
+			 WHERE P.use_indc='Y' AND I.org_code IS NOT NULL
+			 GROUP BY I.org_code, P.diag_majr_code, I.sum_rgdt_date ) C ON C.diag_majr_code=L.diag_majr_code) L2;	
+ 	]]>
+ 	</select>
+ 	<!-- 개인 정책별 점수 조회 [가중치 미적용]-->
+ 	<select id="dashboard.getUserPolicyForScore" parameterClass="dashboardSearchVO" resultClass="userPolIdxInfoVO">
+ 	<![CDATA[
+ 		SELECT
+	        P.sec_pol_id diag_majr_code,
+	        P.sec_pol_desc diag_desc,
+	        coalesce(I.emp_no, #emp_no#) emp_no,
+	        coalesce(I.count, -999) count,
+	        coalesce(I.score, -999) score,
+			fn_get_scoretocode(coalesce(I.score, -999)) scorestat,
+			fn_get_scoretocodename(coalesce(I.score, -999)) scorestat_name,
+			fn_get_scoretocodecolor(coalesce(I.score, -999)) scorestat_color,
+	        coalesce(substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' || substr(I.idx_rgdt_date,7,2), '수집정보 없음') rgdt_date,
+	        (SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info) search_rgdt_date
+	    FROM "pol_idx" P
+		LEFT JOIN nx_user_idx_info I 
+			ON I.pol_idx_id = P.sec_pol_id      
+		AND I.emp_no = #emp_no#
+		AND I.idx_rgdt_date = #search_date# /*(SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info)*/
+	    WHERE P.use_indc='Y' AND I.idx_rgdt_date IS NOT NULL
+	    ORDER BY P.sec_pol_id;	
+ 	]]>
+ 	<!-- SELECT
+	        P.sec_pol_id diag_majr_code,
+	        P.sec_pol_desc diag_desc,
+	        coalesce(I.emp_no, #emp_no#) emp_no,
+	        coalesce(I.count, -999) count,
+	        coalesce(I.score, -999) score,
+			fn_get_scoretocode(coalesce(I.score, -999)) scorestat,
+			fn_get_scoretocodename(coalesce(I.score, -999)) scorestat_name,
+			fn_get_scoretocodecolor(coalesce(I.score, -999)) scorestat_color,
+	        coalesce(substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' || substr(I.idx_rgdt_date,7,2), '수집정보 없음') rgdt_date,
+	        (SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info) search_rgdt_date
+	    FROM "pol_idx" P
+		LEFT JOIN nx_user_idx_info I 
+			ON I.pol_idx_id = P.sec_pol_id      
+		AND I.emp_no = #emp_no#
+		AND I.idx_rgdt_date = #search_date# /*(SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info)*/
+	    WHERE P.use_indc='Y' AND I.idx_rgdt_date IS NOT NULL
+	    ORDER BY P.sec_pol_id;	 -->
+ 	</select>
+ 	<!-- 부서장 정책 미선택시 하위 부서 점수 조회 [점수 가중치 적용] -->
+ 	<select id="dashboard.getOrgNonePolicyForScore" parameterClass="dashboardSearchVO" resultClass="userPolIdxInfoVO">
+ 	<![CDATA[
+ 		SELECT
+	        T1.org_code ,
+	        T1.org_nm,
+	        '' AS diag_majr_code,
+	        '' AS diag_desc,
+	        coalesce(T1.count, -999) count,
+	        coalesce(T2.avg, -999) score,
+	        coalesce(T2.avg, -999) avg_score,
+	        fn_get_scoretocode(coalesce(T2.avg,100)) scorestat,
+			fn_get_scoretocodename(coalesce(T2.avg,100)) scorestat_name,
+			fn_get_scoretocodecolor(coalesce(T2.avg,100)) scorestat_color,
+			coalesce(substr(T2.sum_rgdt_date,1,4) || '-' || substr(T2.sum_rgdt_date,5,2) || '-' || substr(T2.sum_rgdt_date,7,2), '수집정보 없음') rgdt_date,
+			(SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_pol_sum_info) search_rgdt_date
+	    FROM
+	        ( 	SELECT
+			    A.org_code ,
+			    A.org_nm,
+			    A.org_order,
+			    coalesce(sum(B.tot_count), -999) count 
+			FROM
+			    ( SELECT
+				G.org_code org_code,
+				G.org_nm org_nm,
+				G.org_order        
+			    FROM
+				nx_org_group G            
+			    WHERE
+				G.use_indc='1'          
+				AND upper_org_code = #org_code#  
+				AND (SELECT count(1) FROM nx_org_user U WHERE U.org_code=G.org_code) > 0      
+			    ) A   
+			LEFT JOIN nx_pol_sum_info B ON A.org_code = B.org_code   
+				AND B.sum_rgdt_date = #search_date# /*(SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_pol_sum_info)*/
+			GROUP by
+			    A.org_code,
+			    A.org_nm,
+			    A.org_order
+	           ) T1   
+	        LEFT JOIN nx_total_sum_info T2 ON T2.org_code = T1.org_code   
+	                AND T2.sum_rgdt_date = #search_date# /*(SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_total_sum_info)*/
+	        WHERE T2.sum_rgdt_date IS NOT NULL
+	        ORDER BY T1.org_order;	
+ 	]]>
+ 	</select>
+ 	<!-- 부서장 정책 선택시 하위 부서 점수 조회 [가중치 미적용]-->
+ 	<select id="dashboard.getOrgPolicyForScore" parameterClass="dashboardSearchVO" resultClass="userPolIdxInfoVO">
+ 	<![CDATA[
+ 		SELECT    
+			A.org_code,
+			A.org_nm,
+			P.diag_majr_code,
+			D.diag_desc,
+			coalesce(sum(S.tot_count), 0) count,
+			coalesce(trunc(round(avg(S.avg), 3)), 100) score,
+			coalesce(trunc(round(avg(S.avg), 3)), 100) avg_score,
+			fn_get_scoretocode(coalesce(trunc(round(avg(S.avg), 3)), 100)) scorestat,
+			fn_get_scoretocodename(coalesce(trunc(round(avg(S.avg), 3)), 100)) scorestat_name,
+			fn_get_scoretocodecolor(coalesce(trunc(round(avg(S.avg), 3)), 100)) scorestat_color,
+			coalesce(substr(S.sum_rgdt_date,1,4) || '-' || substr(S.sum_rgdt_date,5,2) || '-' || substr(S.sum_rgdt_date,7,2), '수집정보 없음') rgdt_date,
+			(SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_pol_sum_info) search_rgdt_date
+		    FROM
+			(
+				SELECT
+				    G.org_code,
+				    G.org_nm, 
+				    G.org_order         
+				FROM
+				    nx_org_group G          
+				WHERE G.use_indc='1' 
+					AND G.upper_org_code = #org_code#
+					AND (SELECT count(1) FROM nx_org_user U WHERE U.org_code=G.org_code) > 0 
+				ORDER BY
+				    G.org_order   
+			) A
+			LEFT JOIN nx_pol_sum_info S 
+				ON S.org_code=A.org_code 
+				AND S.sum_rgdt_date = #search_date# /*(SELECT coalesce(max(sum_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_pol_sum_info)*/
+				AND S.pol_idx_id in (
+					select sec_pol_id from pol_idx
+					where diag_majr_code=#majrCode# AND use_indc='Y'
+				) 
+			LEFT JOIN pol_idx P ON P.sec_pol_id=S.pol_idx_id AND P.use_indc='Y'   
+		        LEFT JOIN diag_item_code D ON D.diag_minr_code = P.diag_majr_code AND D.use_indc='Y' 
+		    WHERE S.sum_rgdt_date IS NOT NULL
+		    GROUP BY
+			    A.org_code,
+			    A.org_nm,
+			    A.org_order,
+			    P.diag_majr_code,
+			    diag_desc,
+			    sum_rgdt_date
+			ORDER BY  A.org_order;	
+ 	]]>
+ 	</select>
+ 	<!-- 부서장 하위부서 없음 즉 팀장 일경우 전체 정책 팀원별 점수 조회 [가중치적용] -->
+ 	<select id="dashboard.getTeamTotalForScore" parameterClass="dashboardSearchVO" resultClass="userPolIdxInfoVO">
+ 	<![CDATA[
+ 		 SELECT 
+			T1.emp_no,
+			T1.emp_nm,
+			T1.org_code,
+			T1.org_nm,
+			coalesce(T1.count, 0) count,
+			'P' buseo_indc,
+			coalesce(T2.score, 100) score,
+			fn_get_scoretocode(coalesce(T2.score, 100)) scorestat,
+			fn_get_scoretocodename(coalesce(T2.score, 100)) scorestat_name,
+			fn_get_scoretocodecolor(coalesce(T2.score, 100)) scorestat_color,
+			coalesce(substr(T2.idx_rgdt_date,1,4) || '-' || substr(T2.idx_rgdt_date,5,2) || '-' || substr(T2.idx_rgdt_date,7,2), '수집정보 없음') rgdt_date,
+			(SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info_day) search_rgdt_date
+		FROM ( 
+			SELECT B.emp_no 
+			, sum(B.count) count
+			, A.emp_nm
+			, A.org_code
+			, A.org_nm
+			FROM (SELECT
+				G.emp_no, 
+				G.emp_nm,
+				G.org_code,
+				OG.org_nm
+			      FROM nx_org_user G 
+			      LEFT JOIN nx_org_group OG ON OG.org_code=G.org_code
+			      WHERE G.stat='1' 
+			      AND (G.org_code =#org_code# OR G.origin_org_code =#org_code#)
+		    	      ) A
+			LEFT JOIN nx_user_idx_info B ON A.emp_no = B.emp_no
+				AND B.idx_rgdt_date = #search_date# /*(SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info)*/
+			GROUP BY B.emp_no, A.emp_nm, A.org_code, A.org_nm
+		) T1
+		LEFT JOIN nx_user_idx_info_day T2 ON T2.emp_no = T1.emp_no
+		AND T2.idx_rgdt_date = #search_date# /*(SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info_day)*/
+		WHERE T2.idx_rgdt_date IS NOT NULL
+		ORDER BY T1.emp_no;
+	]]>        
+ 	</select>
+ 	<!-- 부서장 하위부서 없음 즉 팀장 일경우 정책별 팀원 점수 조회 [가중치 미적용] -->
+ 	<select id="dashboard.getTeamPolicyForScore" parameterClass="dashboardSearchVO" resultClass="userPolIdxInfoVO">
+ 	<![CDATA[
+ 		 SELECT       
+	        U.emp_no,
+	        U.emp_nm,
+	        G.org_code,
+	        G.org_nm,
+	        coalesce(sum(I.count), 0) count,
+	        coalesce(trunc(ROUND(AVG(I.score),3)), 100) score,
+	        fn_get_scoretocode(coalesce(trunc(ROUND(AVG(I.score),3)), 100)) scorestat,
+			fn_get_scoretocodename(coalesce(trunc(ROUND(AVG(I.score),3)), 100)) scorestat_name,
+			fn_get_scoretocodecolor(coalesce(trunc(ROUND(AVG(I.score),3)), 100)) scorestat_color,
+			coalesce(substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' || substr(I.idx_rgdt_date,7,2), '수집정보 없음') rgdt_date,
+			(SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info) search_rgdt_date
+	    FROM nx_org_user U        
+	    LEFT JOIN nx_org_group G ON U.org_code=G.org_code        
+	    LEFT JOIN nx_user_idx_info I ON U.emp_no=I.emp_no           
+	            AND I.idx_rgdt_date = #search_date# /*(SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info)*/
+	            AND I.pol_idx_id in (
+					select sec_pol_id from pol_idx
+					where diag_majr_code=#majrCode# AND use_indc='Y' 
+	            )        
+	    WHERE
+	        1=1         
+	        AND (U.org_code=#org_code# OR U.origin_org_code=#org_code#) AND U.stat='1' 
+	        AND I.idx_rgdt_date IS NOT NULL
+	    GROUP BY
+	        G.org_code,
+	        U.emp_no,
+	        U.emp_nm,
+	        G.org_nm,
+	        I.mac,
+	        I.IP,
+	        I.idx_rgdt_date     
+	    ORDER BY U.emp_no;
+	]]>        
+ 	</select>
+ 	
+ 	<!-- 마지막 날짜 조회 -->
+ 	<select id="dashboard.getLastData" resultClass="java.lang.String">
+ 	<![CDATA[
+ 		 SELECT coalesce(max(idx_rgdt_date),to_char(current_date-1, 'YYYYMMDD')) FROM nx_user_idx_info
+	]]>        
+ 	</select>
+ 	<!-- 게시판 NEW 체크   -->
+ 	<select id="dashboard.getBoardReadCountInfo" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+ 	<![CDATA[
+	 	WITH pDate (pdate) AS
+		(
+			SELECT to_char(current_date-(SELECT coalesce(add_info1, '7')::int FROM code_info WHERE majr_code='CFG' AND minr_code='NEW'), 'YYYYMMDD') 
+		)
+		SELECT 
+		  (SELECT coalesce(COUNT(N.sq_no), 0)  
+		  	FROM notice_info N 
+			LEFT JOIN board_read_log L ON L.seq_no=N.sq_no AND L.board_type=N.n_type AND L.emp_no=#empno# 
+			WHERE N.n_type='0000' AND L.seq_no IS NULL AND to_char(N.upd_date, 'YYYYMMDD') >= P.pdate) noticnt
+		 ,(SELECT coalesce(COUNT(N.sq_no), 0) 
+		 	FROM notice_info N 
+			LEFT JOIN board_read_log L ON L.seq_no=N.sq_no AND L.board_type=N.n_type AND L.emp_no=#empno#
+			WHERE N.n_type='0001' AND L.seq_no IS NULL AND to_char(N.upd_date, 'YYYYMMDD') >= P.pdate) faqcnt
+		 ,(SELECT coalesce(COUNT(N.sq_no), 0) 
+		 	FROM qna_info N 
+			LEFT JOIN board_read_log L ON L.seq_no=N.sq_no AND L.board_type='0002' AND L.emp_no=#empno#
+			WHERE L.seq_no IS NULL AND to_char(N.upd_date, 'YYYYMMDD') >= P.pdate) qnacnt
+		FROM pDate P
+	]]>   
+ 	</select>
+</sqlMap>

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="serverAnal">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="searchInfoVO" type="sdiag.server.service.ServerPolSearchVO"/>
+	<typeAlias alias="serverPolVO" type="sdiag.server.service.ServerPolVO"/>
+	
+	<select id="serverAnal.getServerPolList" parameterClass="searchInfoVO" resultClass="searchInfoVO">
+		SELECT policy_id as polId, 
+			src_table as tbnm,
+			extract_term as extractTerm
+  		FROM policy_info
+  		where 1=1 
+  		<isNotEmpty property="polId">
+  		AND policy_id = #polId#
+  		</isNotEmpty>
+ 	</select>
+ 	
+ 	
+ 	<select id="serverAnal.getlogList" parameterClass="searchInfoVO" resultClass="egovMap">
+ 	
+		SELECT 
+		<iterate  property="columnList" conjunction="," >
+		$columnList[].columnName$
+		</iterate>
+		,조치예정일, 조치여부, 비고, to_char(sldm_org_logdate, 'YYYYmmdd') rgdt_date
+  		FROM $tbnm$
+  		where 1=1
+  		<isNotEmpty property="s_EmpNo">
+  		AND sldm_empno = #s_EmpNo#
+  		</isNotEmpty>
+  		<isNotEmpty property="s_EmpNm">
+  		AND empnm LIKE CONCAT('%',#s_EmpNm#,'%')
+  		</isNotEmpty>
+  		
+  		
+  		<![CDATA[
+  		AND sldm_org_logdate <= to_date(to_char(current_date+1, 'YYYYmmdd' ) , 'YYYYmmdd' ) 
+    	AND  sldm_org_logdate >= to_date(to_char(current_date-#extractTerm#, 'YYYYmmdd' )  , 'YYYYmmdd' ) 
+    	]]>
+  		<isNotEmpty property="s_actionYn">
+  		AND 조치여부 = #s_actionYn#
+  		</isNotEmpty>
+  		ORDER BY sldm_org_logdate, seq desc
+ 	</select>
+ 	
+ 	<select id="serverAnal.getColumnList" parameterClass="searchInfoVO" resultClass="egovMap">
+		SELECT column_name 
+		FROM information_schema.columns 
+		WHERE table_name ILIKE #tbnm#
+		AND column_name not in('sldm_ip', 'sldm_mac', 'd_flag', 'ep_flag', '조치예정일', '조치여부', '비고')
+ 	</select>
+ 	
+ 	<!-- 로그 정보 수정 -->
+ 	<select id="serverAnal.getDateList" parameterClass="searchInfoVO" resultClass="egovMap">
+		SELECT 
+		to_char(sldm_org_logdate, 'YYYY-mm-dd') rgdt_date
+  		FROM $tbnm$
+  		where sldm_empno = #s_EmpNo#
+  		group by to_char(sldm_org_logdate, 'YYYY-mm-dd')
+ 	</select>
+ 	
+ 	<!-- 로그 정보 수정 -->
+ 	<update id="serverAnal.setPolLogUpdate"  parameterClass="serverPolVO">
+		UPDATE $src_table$
+	   	SET 
+	   		조치예정일=#actionDate#
+	   		, 조치여부=#actionYn#
+	   		, 비고=#bigo#
+	   	WHERE sldm_empno = #sldmEmpNo#
+ 		AND to_char(sldm_org_logdate, 'YYYYmmdd') = #sldmOrgLogDate#
+ 		AND seq = #seq#
+ 	</update>
+ 	
+ 	<!-- 로그 정보 수정(관리자모드) -->
+ 	<update id="serverAnal.setPolLogUpdateAdmin"  parameterClass="serverPolVO">
+		UPDATE $src_table$
+	   	SET 
+	   		조치예정일=#actionDate#
+	   		, 조치여부=#actionYn#
+	   		, 비고=#bigo#
+	   		, sldm_empno =#sldmEmpNo#
+	   		, empno = #sldmEmpNo#
+	   		, empnm = (select emp_nm from nx_org_user where emp_no =#sldmEmpNo#)
+	   	WHERE empno = #empNo#
+ 		AND to_char(sldm_org_logdate, 'YYYYmmdd') = #sldmOrgLogDate#
+ 		AND seq = #seq#
+ 	</update>
+ 	
+</sqlMap>

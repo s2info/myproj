@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="groupInfo">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="groupDetailInfolVO" type="sdiag.groupInfo.service.GroupDetailInfoVO"/>
+	<typeAlias alias="groupInfoVO" type="sdiag.groupInfo.service.GroupInfoVO"/>
+	<typeAlias alias="groupSearchVO" type="sdiag.groupInfo.service.GroupSearchVO"/>
+	<typeAlias alias="codeInfo" type="sdiag.com.service.CodeInfoVO"/>
+	 
+	
+	
+	<sql id="groupInfo.getGroupInfoListWhere">
+		<isNotEmpty property="searchCondition">
+			AND group_type = #searchCondition#
+		</isNotEmpty>
+		<isNotEmpty property="searchKeyword">
+			AND group_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isNotEmpty>
+	</sql>
+	
+	
+	<!-- 점검표 LIST -->
+	<select id="groupInfo.getGroupInfoList" resultClass="groupInfoVO" parameterClass="groupSearchVO">
+ 	<![CDATA[
+ 		SELECT 
+  			group_code AS groupCode, 
+  			group_nm AS groupNm, 
+  			group_ext AS groupext, 
+  			rgdt_emp_no AS rgdtEmpNo,
+  			case       
+			    WHEN group_type = '1' THEN '조직/개인' 
+			    WHEN group_type = '2' THEN '취약자'
+			     WHEN group_type = '3' THEN '협력사'
+			     WHEN group_type = '5' THEN '수동입력'
+			    else '복무정보'      
+			end as groupType,
+  			(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm,  
+  			TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate , 
+       		TO_CHAR(updt_date, 'YYYY-mm-dd') AS updtDate
+  		FROM group_info
+  		WHERE 1=1
+ 	]]>
+ 	<include refid="groupInfo.getGroupInfoListWhere" />
+ 	LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+ 	</select>
+ 	
+ 	<!-- 점검표 LIST 총 갯수 -->
+	<select id="groupInfo.getGroupInfoTotalCount" resultClass="int" parameterClass="groupSearchVO">
+ 	<![CDATA[
+ 		Select count(group_code) from group_info
+ 		WHERE 1=1
+ 	]]>
+ 	<include refid="groupInfo.getGroupInfoListWhere" />
+ 	</select>
+ 	
+ 	<!-- 개인 정보 조회 LIST -->
+	<select id="groupInfo.getOrgUserInfoList" resultClass="groupDetailInfolVO" parameterClass="groupSearchVO">
+ 	<![CDATA[
+ 		SELECT 
+  			emp_no AS orgInfo, 
+  			emp_nm AS orgNm, 
+  			posn_nm AS orgPosition, 
+  			'1' AS orgType
+  		FROM nx_org_user
+  		WHERE stat ='1'
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			emp_no = #searchKeyword#
+		</isEqual>		
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+	LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+ 	</select>
+ 	
+ 	<!-- 개인 정보 조회 LIST 총 갯수 -->
+	<select id="groupInfo.getOrgUserInfoTotalCount" resultClass="int" parameterClass="groupSearchVO">
+ 	<![CDATA[
+ 		Select count(emp_no) from nx_org_user
+ 		WHERE stat ='1'
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			emp_no = #searchKeyword#
+		</isEqual>		
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+ 	</select>
+ 	
+ 	<!-- 조직 정보 조회 LIST -->
+	<select id="groupInfo.getOrgGroupInfoList" resultClass="groupDetailInfolVO" parameterClass="groupSearchVO">
+ 	<![CDATA[
+ 		SELECT 
+  			org_code AS orgInfo, 
+  			org_nm AS orgNm, 
+  			(select posn_nm from nx_org_user where emp_no = org_cap_no) AS orgPosition, 
+  			'2' AS orgType
+  		FROM nx_org_group
+  		WHERE use_indc ='1'
+ 	]]>
+	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="3">
+			org_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="4">
+			org_code =#searchKeyword#
+		</isEqual>
+	</isNotEmpty>
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+ 	</select>
+ 	
+ 	<!-- 조직 정보 조회 LIST 총 갯수 -->
+	<select id="groupInfo.getOrgGroupInfoTotalCount" resultClass="int" parameterClass="groupSearchVO">
+ 	<![CDATA[
+ 		Select count(org_code) from nx_org_group
+ 		WHERE use_indc ='1'
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="3">
+			org_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="4">
+			org_code =#searchKeyword#
+		</isEqual>
+	</isNotEmpty>
+ 	</select>
+ 	
+ 	<!-- 그룹 코드 중복 체크-->
+	<select id="groupInfo.groupCodeCheck" resultClass="int" parameterClass="groupInfoVO">
+ 	<![CDATA[
+ 		Select count(group_code) from group_info
+ 	]]>
+ 		WHERE group_code =#groupCode#
+ 	</select>
+ 	
+ 	
+ 	<!-- 그룹 정보 저장  -->
+ 	<insert id="groupInfo.setGroupInfoInsert" parameterClass="groupInfoVO">
+ 		INSERT INTO group_info(
+            group_code, 
+            group_nm, 
+            group_ext,
+            group_type, 
+            rgdt_emp_no, 
+            rgdt_date, 
+            updt_date)
+    	VALUES (#groupCode#, 
+    			#groupNm#, 
+    			#groupExt#, 
+    			#groupType#, 
+    			#rgdtEmpNo#, 
+    			NOW(), 
+    			NOW());
+ 	</insert>
+ 	
+ 	<!-- 그룹 정보 수정 -->
+ 	<update id="groupInfo.setGroupInfoUpdate"  parameterClass="groupInfoVO">
+		UPDATE group_info
+	   	SET 
+	   		updt_date=NOW()
+	   		, group_nm=#groupNm#
+	   		, group_ext = #groupExt#
+	 	WHERE group_code = #groupCode#
+ 	</update>
+ 	
+ 	<!-- 그룹 상세 정보 저장  -->
+ 	<insert id="groupInfo.setGroupDetailInfoInsert" parameterClass="groupDetailInfolVO">
+ 		INSERT INTO group_detail_info(
+            group_code, 
+            org_type, 
+            org_info, 
+            rgdt_emp_no, 
+            rgdt_date, 
+            updt_date, 
+            org_nm)
+    	VALUES (#groupCode#, 
+    			#orgType#, 
+    			#orgInfo#, 
+    			#rgdtEmpNo#, 
+    			NOW(), 
+    			NOW(),
+    			#orgNm#);
+ 	</insert>
+ 	
+ 	<select id="groupInfo.getGroupInfo" resultClass="groupInfoVO" parameterClass="groupInfoVO">
+ 	<![CDATA[
+ 		SELECT 
+  			group_code AS groupCode, 
+  			group_nm AS groupNm, 
+  			group_ext AS groupext, 
+  			rgdt_emp_no AS rgdtEmpNo,
+  			group_type AS groupType,
+  			(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm,  
+  			TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate , 
+       		TO_CHAR(updt_date, 'YYYY-mm-dd') AS updtDate
+  		FROM group_info
+ 	]]>
+ 		WHERE group_code = #groupCode#;
+ 	</select>
+ 	
+ 	<select id="groupInfo.getGroupDetailInfoList" resultClass="groupDetailInfolVO" parameterClass="groupInfoVO">
+ 	<![CDATA[
+ 		SELECT 
+  			group_code AS groupCode,
+  			case       
+			    WHEN org_type = '1' THEN '개인'         
+	            WHEN org_type = '2' THEN '조직'              
+	            WHEN org_type = '3' THEN '취약자'
+	            WHEN org_type = '4' THEN '협력사' 
+	            WHEN org_type = '5' THEN '복무정보'
+			end as orgType,  
+  			org_info AS orgInfo, 
+  			org_nm AS orgNm
+  		FROM group_detail_info
+ 	]]>
+ 		WHERE group_code = #groupCode#;
+ 	</select>
+ 	
+ 	<!-- 그룹 정보 삭제 -->
+ 	<delete id="groupInfo.groupInfoDelete"  parameterClass="groupInfoVO">
+		DELETE FROM group_info
+	 	WHERE group_code = #groupCode#;
+ 	</delete>
+ 	
+ 	<!-- 그룹  상세 정보 삭제 -->
+ 	<delete id="groupInfo.groupDetailInfoDelete"  parameterClass="groupDetailInfolVO">
+		DELETE FROM group_detail_info
+	 	WHERE group_code = #groupCode#
+	 	<isNotEmpty property="orgInfo">
+			AND org_info=#orgInfo#;
+		</isNotEmpty>
+ 	</delete>
+ 	
+ 	<!-- 그룹 상세 정보 존재 여부 체크 -->
+	<select id="groupInfo.groupDetailCheck" resultClass="int" parameterClass="groupDetailInfolVO">
+ 	<![CDATA[
+ 		Select count(group_code) from group_detail_info
+ 		WHERE org_info=#orgInfo#
+ 		AND group_code = #groupCode#
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 팝업에서 그룹 정보 조회 LIST -->
+	<select id="groupInfo.getPopGroupInfoList" resultClass="groupDetailInfolVO" parameterClass="groupSearchVO">
+ 	<![CDATA[
+ 		SELECT 
+  			group_code AS orgInfo, 
+  			group_nm AS orgNm, 
+  			group_ext AS orgPosition, 
+  			'3' AS orgType
+  		FROM group_info
+  		WHERE 1=1
+ 	]]>
+	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="5">
+			group_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+ 	</select>
+ 	
+ 	<!-- 팝업에서 그룹 정보 조회 LIST 총 갯수 -->
+	<select id="groupInfo.getPopGroupInfoTotalCount" resultClass="int" parameterClass="groupSearchVO">
+ 	<![CDATA[
+ 		Select count(group_code) from group_info
+ 		WHERE 1=1
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="5">
+			group_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+ 	</select>
+ 	
+ 	<!-- 점검표 seq 정보 -->
+ 	<select id="groupInfo.getGroupCode" resultClass="int">
+ 	<![CDATA[
+ 		SELECT coalesce(MAX(group_code), 0) + 1 nseq FROM "group_info";
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 점검표 seq 정보 -->
+ 	<select id="groupInfo.getPolIdxList" resultClass="codeInfo">
+ 	<![CDATA[
+ 		SELECT
+			A.sec_pol_id minr_code,
+			A.sec_pol_desc code_desc
+		FROM "pol_idx" A
+		WHERE A.use_indc = 'Y'
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 그룹 정보 저장  -->
+ 	<insert id="groupInfo.setPassiveGroupInsert" parameterClass="groupDetailInfolVO">
+ 		INSERT INTO group_detail_info(
+            group_code, 
+            org_type, 
+            org_info, 
+            rgdt_emp_no, 
+            rgdt_date, 
+            updt_date, 
+            org_nm)
+    	SELECT #groupCode#, #orgType#, #orgInfo#, #rgdtEmpNo#, NOW(), NOW(), emp_nm 
+    	FROM nx_org_user WHERE emp_no = #orgInfo#
+ 	</insert>
+ 	<!-- 그룹 정보 저장  -->
+ 	<insert id="groupInfo.setQueryStrInsert" parameterClass="groupDetailInfolVO">
+		#queryStr#
+ 	</insert>
+</sqlMap>

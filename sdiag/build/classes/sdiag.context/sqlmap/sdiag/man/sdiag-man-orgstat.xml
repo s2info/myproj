@@ -1,0 +1,603 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="securityDay">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="statInfoVO" type="sdiag.man.vo.StatInfoVO"/>
+	<typeAlias alias="OrgStatSearchVO" type="sdiag.man.vo.OrgStatisticSearchVO"/>
+	
+	<!-- 통계 정보 LIST -->
+	<select id="orgStat.getStatInfoList" resultClass="egovMap" parameterClass="OrgStatSearchVO">
+ 	<![CDATA[
+ 		SELECT T1.stat_seq statSeq, 
+ 			T1.subject, 
+ 			T1.rgdt_emp_no rgdtEmpNo, 
+ 			to_char(T1.rgdt_date, 'YYYY-mm-dd') rgdtDate, 
+ 			T1.updt_emp_no updtEmpNo, 
+ 			to_char(T1.updt_date, 'YYYY-mm-dd') updtDate,
+ 			case when (select count(org_code) from stat_total_sum_info where stat_seq = T1.stat_seq) > 0 then 'Y'
+ 			     ELSE 'N' END sumYn
+  		FROM stat_info T1
+  		WHERE 1=1
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+		AND T1.subject LIKE CONCAT('%',#searchKeyword#,'%')
+	</isNotEmpty>
+ 	ORDER BY T1.updt_date desc
+ 	LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+ 	
+ 	</select>
+ 	
+ 	<!-- 통계 정보 LIST 총 갯수 -->
+	<select id="orgStat.getStatInfoListTotalCount" resultClass="int" parameterClass="OrgStatSearchVO">
+ 	<![CDATA[
+ 		SELECT count(stat_seq) FROM stat_info
+ 		WHERE 1=1
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+		AND subject =#searchKeyword#
+	</isNotEmpty>
+ 	</select>
+ 	
+ 	
+ 	<!-- 정책 LIST -->
+	<select id="orgStat.getPolList" resultClass="egovMap">
+ 		SELECT sec_pol_id,
+ 			sec_pol_desc
+ 		FROM pol_idx
+ 		WHERE use_indc ='Y'
+ 	</select>
+ 	
+ 	
+ 	<!-- 통계 seq 정보 -->
+ 	<select id="orgStat.getStatSeq" resultClass="int">
+ 	<![CDATA[
+ 		SELECT coalesce(MAX(stat_seq), 0) + 1 nseq FROM stat_info;
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!--통계 정책 정보 insert -->
+	<insert id="orgStat.statPolInfoInsert"  parameterClass="statInfoVO">
+	<![CDATA[
+		INSERT INTO stat_pol_info
+		(
+			stat_seq
+		  , pol_idx_id
+		  , pol_idx_nm
+		  , sum_rgdt_date
+		  , pol_weight_value
+		  , gubun
+		  , rgdt_emp_no
+		  , rgdt_date
+		)
+	]]>
+	<dynamic>
+		<iterate prepend="VALUES" conjunction=", " property="statPolList">
+			( 
+				#statSeq#
+				, #statPolList[].polIdxId#
+				, #statPolList[].polIdxNm#
+				, #statPolList[].sumRgdtDate#
+				, #statPolList[].polWeightValue#
+				, #statPolList[].gubun#
+				, #rgdtEmpNo#
+				, NOW()
+			)
+		</iterate>
+	</dynamic>
+	</insert>
+	
+	<!--통계 정책 정보 insert -->
+	<insert id="orgStat.statInfoInsert"  parameterClass="statInfoVO">
+	<![CDATA[
+		INSERT INTO stat_info
+		(
+			stat_seq
+		  , subject
+		  , rgdt_emp_no
+		  , rgdt_date
+		)
+		VALUES
+		(
+			#statSeq#
+		  , #subject#
+		  , #rgdtEmpNo#
+		  , NOW()
+		);
+	]]>
+	</insert>
+	
+	<!--통계 정책 정보 insert -->
+	<insert id="orgStat.statUploadScoreInsert"  parameterClass="java.util.HashMap">
+	<![CDATA[
+		INSERT INTO stat_upload_score
+		(
+			stat_seq
+		  , pol_idx_id
+		  , emp_no
+		  , score
+		  , rgdt_emp_no
+		  , rgdt_date
+		)
+	]]>
+	<dynamic>
+		<iterate prepend="VALUES" conjunction=", " property="scoreList">
+			( 
+			    #statSeq#
+				, #polIdxId#
+				, #scoreList[].empno#
+				, #scoreList[].score#
+				, #rgdtEmpNo#
+				, NOW()
+			)
+		</iterate>
+	</dynamic>
+	</insert>
+	
+	<!-- 통계 정책 LIST -->
+	<select id="orgStat.getStatPolList" resultClass="statInfoVO" parameterClass="OrgStatSearchVO">
+ 		SELECT stat_seq statSeq,
+ 			pol_idx_id polIdxId,
+ 			pol_idx_nm polIdxNm,
+ 			to_char(to_date(coalesce(trim(sum_rgdt_date), ''), 'YYYYmmdd'), 'YYYY-mm-dd') sumRgdtDate,
+ 			 coalesce(pol_weight_value,1) polWeightValue,
+ 			  gubun
+ 		FROM stat_pol_info
+ 		WHERE stat_seq =#statSeq#
+ 	</select>
+	
+	<!-- 수동 정책 cnt -->
+ 	<select id="orgStat.getUpPolCnt" resultClass="int" parameterClass="OrgStatSearchVO">
+ 	<![CDATA[
+ 		SELECT coalesce(MAX(replace(pol_idx_id, 'SHAN','')::int), 0) + 1
+ 		FROM stat_pol_info 
+ 		WHERE stat_seq = #statSeq# 
+ 		AND gubun='U'
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 통계 정책 삭제 -->
+ 	<delete id="orgStat.statPolInfoDelete" parameterClass="statInfoVo">
+ 	<![CDATA[
+ 		DELETE
+ 		FROM stat_pol_info 
+ 		WHERE stat_seq = #statSeq# 
+ 	]]>
+ 	</delete>
+ 	
+ 	<!-- 수동 점수 정보 삭제-->
+ 	<delete id="orgStat.statUploadScoreDelete" parameterClass="java.util.HashMap">
+ 	<![CDATA[
+ 		DELETE
+ 		FROM stat_upload_score 
+ 		WHERE stat_seq = #statSeq# 
+ 		AND pol_idx_id = #polIdxId#
+ 	]]>
+ 	</delete>
+ 	
+ 	<!-- 수동 점수 정보 삭제-->
+ 	<delete id="orgStat.setStatUploadScoreDelete" parameterClass="statInfoVO">
+ 	<![CDATA[
+ 		DELETE
+ 		FROM stat_upload_score 
+ 		WHERE stat_seq = #statSeq# 
+ 		AND pol_idx_id not in (select pol_idx_id from stat_pol_info where stat_seq = #statSeq# and gubun ='U')
+ 	]]>
+ 	</delete>
+ 	
+ 	<!-- 통계 정보 수정 -->
+ 	<update id="orgStat.statInfoUpdate" parameterClass="statInfoVO">
+ 	<![CDATA[
+ 		UPDATE  stat_info set 
+ 		subject = #subject#
+ 		WHERE stat_seq = #statSeq# 
+ 	]]>
+ 	</update>
+ 	
+ 	<!-- 통계 정책 LIST -->
+	<select id="orgStat.getStatInfo" resultClass="statInfoVO" parameterClass="OrgStatSearchVO">
+ 		SELECT stat_seq statSeq, 
+ 			subject, 
+ 			rgdt_emp_no rgdtEmpNo, 
+ 			to_char(rgdt_date, 'YYYY-mm-dd') rgdtDate, 
+ 			updt_emp_no updtEmpNo, 
+ 			to_char(updt_date, 'YYYY-mm-dd') updtDate
+ 		FROM stat_info
+ 		WHERE stat_seq =#statSeq#
+ 	</select>
+ 	
+ 	<!--통계 정책 정보 insert -->
+	<insert id="orgStat.setUploadScore"  parameterClass="statInfoVO">
+
+ 	
+ 		INSERT INTO stat_pol_sum_info(
+            stat_seq, sum_rgdt_date, org_code, org_nm, pol_idx_id, tot_emp, 
+            tot_score, tot_count, tot_org_emp, avg, rgdt_date, rat_avg)
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_0,   a.org_nm_0, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_0 = a.org_code_0),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_0 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_0, a.org_nm_0
+		UNION ALL
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_1,   a.org_nm_1, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_1 = a.org_code_1),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_1 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_1, a.org_nm_1
+		UNION ALL
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_2,   a.org_nm_2, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_2 = a.org_code_2),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_2 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_2, a.org_nm_2
+		UNION ALL	
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_3,   a.org_nm_3, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_3 = a.org_code_3),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_3 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_3, a.org_nm_3
+		UNION ALL	
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_4,   a.org_nm_4, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_4 = a.org_code_4),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_4 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_4, a.org_nm_4
+		UNION ALL	
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_5,   a.org_nm_5, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_5 = a.org_code_5),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_5 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_5, a.org_nm_5
+		UNION ALL	
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_6,   a.org_nm_6, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_6 = a.org_code_6),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_6 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_6, a.org_nm_6
+		UNION ALL	
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_7,   a.org_nm_7, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_7 = a.org_code_7),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_7 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_7, a.org_nm_7
+		UNION ALL	
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_8,   a.org_nm_8, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_8 = a.org_code_8),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_8 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_8, a.org_nm_8
+		UNION ALL	
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_9,   a.org_nm_9, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_9 = a.org_code_9),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_9 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_9, a.org_nm_9
+		UNION ALL	
+		SELECT #statSeq#,to_char(now(), 'YYYYmmdd'),
+				a.org_code_10,   a.org_nm_10, 
+				b.pol_idx_id, count(b.emp_no), 
+				sum(b.score), count(b.emp_no),  
+				(select count(*) from nx_org_user_hier where org_code_10 = a.org_code_10),
+                trunc((sum(b.score) / (count(b.emp_no)*1.0)),0),
+                now(), round((sum(b.score) / (count(b.emp_no)*1.0)),3)
+        FROM nx_org_user_hier a 
+        JOIN stat_upload_score b 
+        ON a.emp_no = b.emp_no 
+        WHERE a.org_code_10 is not null 
+        AND b.stat_seq = #statSeq#
+        AND b.pol_idx_id in ( select pol_idx_id from stat_pol_info where stat_seq =  #statSeq# AND gubun='U')
+        GROUP BY b.pol_idx_id, a.org_code_10, a.org_nm_10	;	  
+     </insert>
+     
+     
+     <!-- 통계 정책 LIST -->
+	<select id="orgStat.getPolIdxList" resultClass="statInfoVO" parameterClass="statInfoVO">
+ 		SELECT stat_seq statSeq,
+ 			pol_idx_id polIdxId,
+ 			pol_idx_nm polIdxNm,
+ 			to_char(to_date(coalesce(trim(sum_rgdt_date), ''), 'YYYYmmdd'), 'YYYYmmdd') sumRgdtDate,
+ 			 coalesce(pol_weight_value,100) polWeightValue,
+ 			   gubun
+ 		FROM stat_pol_info
+ 		WHERE stat_seq =#statSeq#
+ 		AND gubun = 'P';
+ 	</select>
+ 	
+ 	 <!-- 통계 수동 정책 LIST -->
+	<select id="orgStat.getUpPolIdxList" resultClass="statInfoVO" parameterClass="statInfoVO">
+ 		SELECT stat_seq statSeq,
+ 			pol_idx_id polIdxId,
+ 			pol_idx_nm polIdxNm,
+ 			 coalesce(pol_weight_value,100) polWeightValue,
+ 			  gubun
+ 		FROM stat_pol_info
+ 		WHERE stat_seq =#statSeq#
+ 		AND gubun = 'U'
+ 		AND (select count(A.pol_idx_id) from stat_upload_score A where stat_seq=#statSeq# and A.pol_idx_id =pol_idx_id ) > 0
+ 	</select>
+ 	
+ 	<insert id="orgStat.setTotalStatScore"  parameterClass="statInfoVO">
+	<![CDATA[
+		INSERT INTO stat_total_sum_info
+		(
+			stat_seq
+		  , sum_rgdt_date
+		  , org_code
+		  , org_nm
+		  , total_rat_score
+		  , total_score
+		  , total_avg
+		  , rgdt_date
+		  
+		)
+	]]>
+	   SELECT TS.statSeq, TS.sum_rgdt_date, TS.org_code, TS.org_nm, TS.total_rat_score, TS.total_score,
+	   	 CASE 
+                WHEN TS.total_score > 0 THEN      
+                CASE 
+                    WHEN  TS.aCnt > 0 THEN     trunc(round (TS.total_score/Ts.aCnt , 3),2) 
+		ELSE 0 
+		END
+            ELSE 0 
+		END  total_avg ,
+	   TS.rgdt_date FROM (
+		SELECT  #statSeq# statSeq , to_char(now() , 'YYYYmmdd') sum_rgdt_date , A.org_code , A.org_nm, round((
+	<dynamic>
+		<iterate  conjunction="+ " property="statPolList">
+			A.$statPolList[].polIdxId$$statPolList[].sumRgdtDate$
+		</iterate>
+		<isNotEmpty property="statUpPolList">
+		<isNotEmpty property="statPolList">
+		+
+		</isNotEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="statUpPolList">
+		<iterate conjunction="+ " property="statUpPolList">
+			 A.$statUpPolList[].polIdxId$$statUpPolList[].sumRgdtDate$
+		</iterate>
+		</isNotEmpty>
+	</dynamic>
+		),3) total_rat_score, trunc((
+	<dynamic>
+		<iterate  conjunction="+ " property="statPolList">
+			A.$statPolList[].polIdxId$$statPolList[].sumRgdtDate$
+		</iterate>
+		<isNotEmpty property="statUpPolList">
+		<isNotEmpty property="statPolList">
+		+
+		</isNotEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="statUpPolList">
+		<iterate conjunction="+ " property="statUpPolList">
+			 A.$statUpPolList[].polIdxId$$statUpPolList[].sumRgdtDate$
+		</iterate>
+		</isNotEmpty>
+	</dynamic>
+		),0) total_score, 
+		coalesce((
+			<isNotEmpty property="statPolList">
+                coalesce((select   round((sum(SP.pol_weight_value)/(100+0.00)),3) from nx_pol_sum_info NP, stat_pol_info SP where NP.org_code = A.org_code
+                AND (
+                <iterate  conjunction="OR " property="statPolList">
+                ( NP.pol_idx_id = #statPolList[].polIdxId#
+					AND NP.sum_rgdt_date = #statPolList[].sumRgdtDate#)
+                 </iterate>
+                )
+                AND SP.pol_idx_id = NP.pol_idx_id
+                AND SP.sum_rgdt_date=NP.sum_rgdt_date
+                AND SP.stat_seq = #statSeq#
+                ), 0) 
+                </isNotEmpty>
+                <isNotEmpty property="statUpPolList">
+                <isNotEmpty property="statPolList">
+                +
+                </isNotEmpty>
+                coalesce((select  round((sum(SP.pol_weight_value)/(100+0.00)),3) from stat_pol_sum_info PS, stat_pol_info SP  where  PS.org_code = A.org_code
+                AND (
+                <iterate  conjunction="OR " property="statUpPolList">
+                ( PS.pol_idx_id = #statUpPolList[].polIdxId#
+					AND PS.stat_seq = #statSeq# )
+                </iterate>
+                )
+                AND SP.pol_idx_id = PS.pol_idx_id
+                AND SP.stat_seq = PS.stat_seq
+                ), 0) 
+                </isNotEmpty>),0) AS aCnt,  now() rgdt_date FROM (
+			SELECT T1.org_code, T1.org_nm,
+			<dynamic>
+		<iterate  conjunction=", " property="statPolList">
+		
+				coalesce((SELECT  round(avg* round((#statPolList[].polWeightValue#  <![CDATA[ +0.00)/(100+0.00),3), 3)]]> 
+				    FROM nx_pol_sum_info
+					WHERE pol_idx_id = #statPolList[].polIdxId#
+					AND sum_rgdt_date = #statPolList[].sumRgdtDate#
+					AND org_code = T1.org_code), 0) $statPolList[].polIdxId$$statPolList[].sumRgdtDate$
+		
+		</iterate>
+		<isNotEmpty property="statUpPolList">
+		<isNotEmpty property="statPolList">
+		,
+		</isNotEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="statUpPolList">
+		<iterate conjunction=", " property="statUpPolList">
+			 coalesce((SELECT  round(avg* round((#statUpPolList[].polWeightValue#  <![CDATA[ +0.00)/(100+0.00),3), 3)]]> 				 
+			 FROM stat_pol_sum_info
+					WHERE pol_idx_id = #statUpPolList[].polIdxId#
+					AND stat_seq = #statSeq#
+					AND org_code = T1.org_code), 0) $statUpPolList[].polIdxId$$statUpPolList[].sumRgdtDate$
+		</iterate>
+		</isNotEmpty>
+			FROM nx_org_group T1
+			WHERE use_indc = '1'
+			AND (SELECT COUNT(emp_no) FROM nx_org_user WHERE org_code = T1.org_code AND stat='1') > 0) AS A) AS TS
+	</dynamic>
+	</insert>
+	
+	<!-- 통계 정책 삭제 -->
+ 	<delete id="orgStat.statPolSumInfoDelete" parameterClass="statInfoVo">
+ 	<![CDATA[
+ 		DELETE
+ 		FROM stat_pol_sum_info 
+ 		WHERE stat_seq = #statSeq# 
+ 	]]>
+ 	</delete>
+ 	
+ 	<!-- 통계 정책 삭제 -->
+ 	<delete id="orgStat.setTotalStatScoreDelete" parameterClass="statInfoVo">
+ 	<![CDATA[
+ 		DELETE
+ 		FROM stat_total_sum_info 
+ 		WHERE stat_seq = #statSeq# 
+ 	]]>
+ 	</delete>
+ 	
+ 	<select id="orgStat.getOrgStatInfo"  parameterClass="statInfoVo" resultClass="egovMap" remapResults="true">
+
+		SELECT  T1.org_code,
+                fn_nx_get_userorgname(T1.org_code) org_nm,
+                T1.total_score,
+                T1.total_avg,
+        <dynamic>
+		<iterate  conjunction=", " property="statPolList">
+				coalesce((SELECT  avg FROM nx_pol_sum_info
+					WHERE pol_idx_id = #statPolList[].polIdxId#
+					AND sum_rgdt_date = #statPolList[].sumRgdtDate#
+					AND org_code = T1.org_code )::varchar, '-') $statPolList[].polIdxId$$statPolList[].sumRgdtDate$
+		</iterate>
+		<isNotEmpty property="statUpPolList">
+		<isNotEmpty property="statPolList">
+		,
+		</isNotEmpty>
+		</isNotEmpty>
+		<isNotEmpty property="statUpPolList">
+		<iterate conjunction=", " property="statUpPolList">
+			coalesce( (SELECT  avg FROM stat_pol_sum_info
+					WHERE pol_idx_id = #statUpPolList[].polIdxId#
+					AND stat_seq = #statSeq#
+					AND org_code = T1.org_code)::varchar, '-') $statUpPolList[].polIdxId$$statUpPolList[].sumRgdtDate$
+		</iterate>
+		</isNotEmpty>
+		</dynamic>
+			FROM stat_total_sum_info T1    
+            WHERE
+                T1.stat_seq = #statSeq# 
+                AND T1.org_code in (
+                	SELECT org_code FROM nx_org_group WHERE org_level = #orgLevel#::varchar)
+             ORDER BY T1.total_avg  DESC ,  T1.total_score DESC 
+	</select >
+	
+	<!--통계 정책 정보 insert -->
+	<delete id="orgStat.orgStatInfoDelete"  parameterClass="statInfoVo">
+	<![CDATA[
+		DELETE FROM stat_info WHERE stat_seq = #statSeq#;
+		
+		DELETE FROM stat_pol_info WHERE stat_seq = #statSeq#;
+		
+		DELETE FROM stat_pol_sum_info WHERE stat_seq = #statSeq#;
+		
+		DELETE FROM stat_upload_score WHERE stat_seq = #statSeq#;
+	]]>
+
+	</delete>
+	
+	<!--통계 정책 정보 insert -->
+	<delete id="orgStat.statPolSumDelete"  parameterClass="statInfoVo">
+	<![CDATA[	
+		DELETE FROM stat_pol_sum_info WHERE stat_seq = #statSeq#;
+	]]>
+
+	</delete>
+          
+</sqlMap>

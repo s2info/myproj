@@ -1,0 +1,583 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="commmon">
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="menuItemVO" type="sdiag.com.service.MenuItemVO"/>
+	<typeAlias alias="codeInfoVO" type="sdiag.com.service.CodeInfoVO"/>
+	<typeAlias alias="orgGroupVO" type="sdiag.pol.service.OrgGroupVO"/>
+	<typeAlias alias="memberVO" type="sdiag.member.service.MemberVO"/>
+	<typeAlias alias="mailSendLogVO" type="sdiag.com.service.MailSendLogVO"/>
+	<typeAlias alias="bpmLogVO" type="sdiag.com.service.BPMInfoVO"/>
+	<typeAlias alias="loginUserTypeVO" type="sdiag.com.service.LoginUserTypeVO" />
+	<typeAlias alias="noticeVO" type="sdiag.board.service.NoticeVO"/>	
+	<typeAlias alias="connectionLogVO" type="sdiag.com.service.ConnectionLogVO" />
+	<typeAlias alias="mailInfoVO" type="sdiag.com.service.MailInfoVO"/>
+	<typeAlias alias="apprInfoVO" type="sdiag.com.service.ApprInfoVO"/>
+	
+	<!-- 조직상위 리스트 조회 -->
+	<select id="commmon.getUpperOrgNames" parameterClass="java.lang.String" resultClass="java.lang.String">
+	<![CDATA[
+ 		SELECT fn_nx_get_userorgname(#orgcode#) upperorgname;
+ 	]]>
+ 	</select>
+	
+	<select id="commmon.getSolMenuList" resultClass="menuItemVO">
+	<![CDATA[
+ 	SELECT diag_majr_code
+		, diag_minr_code
+		, coalesce(diag_desc, '') diag_desc
+		, coalesce(ordr, '0' ) ordr
+		, use_indc
+		, coalesce(diag_notice, '') diag_notice
+		, coalesce(buseo_indc, 'N') buseo_indc
+	FROM "diag_item_code"
+	WHERE use_indc='Y' AND is_delete=false
+	ORDER BY diag_majr_code, ordr;
+ 	]]>
+ 	</select>
+ 	
+ 	<select id="commmon.getSolAllMenuList" resultClass="menuItemVO">
+	<![CDATA[
+ 	SELECT diag_majr_code
+		, diag_minr_code
+		, coalesce(diag_desc, '') diag_desc
+		, coalesce(ordr, '0' ) ordr
+		, use_indc
+		, coalesce(diag_notice, '') diag_notice
+		, coalesce(buseo_indc, 'N') buseo_indc
+	FROM "diag_item_code"
+	WHERE is_delete=false
+	ORDER BY diag_majr_code, ordr;
+ 	]]>
+ 	</select>
+ 	
+ 	<select id="commmon.getPolMenuAllList" parameterClass="java.util.HashMap" resultClass="egovMap">
+ 	<![CDATA[
+	 	WITH POL_LIST(majcode, mincode, diagdesc, ordr, secpolid, secsolid, poldesc, polnotice, buseoindc)
+		AS(
+		SELECT diag_majr_code majcode, diag_minr_code mincode, diag_desc diagdesc
+		, ordr
+		, '' secpolid
+		, '' secsolid
+		, '' poldesc
+		, '' polnotice
+		, coalesce(buseo_indc, 'N') buseoindc
+		FROM diag_item_code 
+		WHERE diag_majr_code = diag_minr_code AND is_delete=false AND use_indc='Y'
+		UNION ALL
+		SELECT I.diag_majr_code majcode
+					, I.diag_minr_code mincode
+					, I.diag_desc diagdesc
+					, I.ordr
+					, coalesce(P.sec_pol_id, '') secpolid
+					, coalesce(P.sec_sol_id, '') secsolid
+					, coalesce(P.sec_pol_desc, '') poldesc
+					, coalesce(P.sec_pol_notice, '') polnotice
+					, coalesce(I.buseo_indc, 'N') buseoindc
+				FROM diag_item_code I
+				LEFT JOIN "pol_idx" P ON I.diag_majr_code=P.diag_majr_code AND I.diag_minr_code=P.diag_minr_code
+				WHERE P.use_indc='Y'
+		) SELECT * FROM POL_LIST 
+		ORDER BY majcode, mincode, secpolid ;
+ 	]]>
+ 	</select>
+ 	
+ 	<select id="commmon.getPolMenuList" parameterClass="java.util.HashMap" resultClass="egovMap">
+ 	<![CDATA[
+ 	SELECT    sec_pol_id secpolid
+		, sec_sol_id secsolid
+		, diag_majr_code majcode
+		, diag_minr_code mincode
+		, sec_pol_desc poldesc
+	FROM "pol_idx"
+	WHERE diag_majr_code=#majcode# AND diag_minr_code=#mincode#;
+ 	]]>
+ 	</select>
+ 	
+ 	<select id="common.getPolMenuNaviString" parameterClass="java.util.HashMap" resultClass="egovMap">
+ 	<![CDATA[
+ 	SELECT 
+	    coalesce((SELECT DISTINCT diag_desc FROM "diag_item_code" WHERE diag_majr_code=#majcode# AND (diag_majr_code=diag_minr_code) ), '') majcodename
+	   ,coalesce((SELECT DISTINCT diag_desc FROM "diag_item_code" WHERE diag_majr_code=#majcode# AND diag_minr_code=#mincode#), '') mincodename
+	   ,coalesce((SELECT DISTINCT sec_pol_desc FROM "pol_idx" WHERE diag_majr_code=#majcode# AND diag_minr_code=#mincode# AND sec_pol_id=#polcode#), '') polcodename
+	;
+ 	]]>
+ 	</select>
+ 	
+ 	<select id="commmon.getCodeInfoList" parameterClass="java.lang.String" resultClass="codeInfoVO">
+ 	<![CDATA[
+	 	SELECT majr_code, minr_code, code_desc, use_indc, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date, add_info1
+		FROM code_info
+		WHERE majr_code=#majCode# AND use_indc='Y'
+ 	]]>
+ 	</select>
+ 	
+ 	<select id="commmon.getCodeInfoListNoTitle" parameterClass="java.lang.String" resultClass="codeInfoVO">
+ 	<![CDATA[
+	 	SELECT majr_code, minr_code, code_desc, use_indc, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date, add_info1
+		FROM code_info
+		WHERE majr_code=#majCode# AND use_indc='Y' AND minr_code <> '00'
+ 	]]>
+ 	</select>
+ 	
+ 	<select id="commmon.getCodeInfo" parameterClass="java.util.HashMap" resultClass="codeInfoVO">
+ 	<![CDATA[
+	 	SELECT majr_code, minr_code, code_desc, use_indc, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date, add_info1
+		FROM code_info
+		WHERE majr_code=#majCode# AND minr_code=#minCode# AND use_indc='Y'
+ 	]]>
+ 	</select>
+ 	
+ 	<select id="commmon.getCodeInfoForOne" parameterClass="codeInfoVO" resultClass="codeInfoVO">
+ 	<![CDATA[
+	 	SELECT majr_code, minr_code, code_desc, use_indc, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date, add_info1
+		FROM code_info
+		WHERE majr_code=#majr_code# AND minr_code=#minr_code# AND use_indc='Y'
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 조직 트리구성을 위한 조직 조회 -->
+ 	<select id="common.getOrgInfoList" parameterClass="java.util.HashMap" resultClass="orgGroupVO">
+ 	<![CDATA[
+	 	SELECT org_code, org_nm, comp_code, org_cap_no, upper_org_code, org_level, org_order
+	 	,CASE WHEN (SELECT COUNT(org_code) FROM "nx_org_group" WHERE upper_org_code=O.org_code) > 0 THEN 'Y' ELSE 'N' END is_suborg   
+		FROM "nx_org_group" O
+	]]>	
+	<isNotEmpty property="orglist">
+		<iterate prepend="WHERE" property="orglist" open=" org_code IN (" conjunction="," close=")">
+ 			#orglist[]#
+ 		</iterate> 
+ 	</isNotEmpty>
+ 	<![CDATA[
+ 		AND O.use_indc='1'	
+		ORDER BY org_code, upper_org_code, org_order
+	]]>
+ 	</select>
+ 	
+ 	<!-- 조직 트리 구성을 위한 조직 리스트 조회-조직장 및 대무자.... -->
+ 	<select id="common.getCapOrgInfoList" parameterClass="java.lang.String" resultClass="orgGroupVO">
+ 	<![CDATA[
+		 WITH ORGLIST (org_code, upper_org_code, org_nm, org_cap_no, comp_code, org_level, org_order, is_suborg, is_orgmember, is_orgloctype) AS (
+			(WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, org_cap_no, comp_code, org_level, org_order, LEVEL , PATH)        
+			  AS ( 
+			    SELECT g.org_code, g.upper_org_code, g.org_nm, g.org_cap_no, g.comp_code, g.org_level, g.org_order, 0, ARRAY[CAST(g.org_code as text)] 
+			    FROM "nx_org_group" g                 
+			    WHERE g.use_indc='1' AND g.org_code=#org_code#              
+			    UNION ALL                 
+			    SELECT g.org_code, g.upper_org_code, g.org_nm, g.org_cap_no, g.comp_code, g.org_level, g.org_order, LEVEL + 1, CAST(g.org_code as text) || sb.PATH
+			    FROM "nx_org_group" g, LIST sb
+			    WHERE g.use_indc='1' AND g.org_code=sb.upper_org_code        
+			  )SELECT org_code, upper_org_code, org_nm, org_cap_no, comp_code, org_level, org_order 
+			       , CASE WHEN (SELECT COUNT(org_code) FROM "nx_org_group" WHERE upper_org_code=L1.org_code) > 0 THEN 'Y' ELSE 'N' END is_suborg 
+			       , CASE WHEN org_code = #org_code# THEN 'Y' ELSE 'N' END is_orgmember  
+			       , 'H' is_orgloctype        
+			    FROM LIST L1 ) 
+		    UNION ALL  
+				(WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, org_cap_no, comp_code, org_level, org_order, LEVEL , PATH)        
+				  AS ( 
+					    SELECT g.org_code, g.upper_org_code, g.org_nm, g.org_cap_no, g.comp_code, g.org_level, g.org_order, 0, ARRAY[CAST(g.org_code as text)]                 
+					    FROM "nx_org_group" g                 
+					    WHERE g.use_indc='1' AND g.upper_org_code=#org_code#    
+					    UNION ALL                 
+					    SELECT g.org_code, g.upper_org_code, g.org_nm, g.org_cap_no, g.comp_code, g.org_level, g.org_order, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+					    FROM "nx_org_group" g, LIST sb 
+					    WHERE g.use_indc='1' AND g.upper_org_code=sb.org_code 
+				  	)SELECT org_code, upper_org_code, org_nm, org_cap_no, comp_code, org_level, org_order
+					, CASE WHEN (SELECT COUNT(org_code) FROM "nx_org_group" WHERE upper_org_code=L2.org_code) > 0 THEN 'Y' ELSE 'N' END is_suborg
+					, 'Y' is_orgmember        
+					, 'L' is_orgloctype         
+				    FROM LIST L2
+				    WHERE (SELECT count(1) FROM nx_org_user u WHERE u.org_code=L2.org_code) > 0
+				)
+		    ) SELECT * FROM ORGLIST
+		    ORDER BY org_order
+		   
+	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 조직 트리구성을 위한 조직 조회 : 속도 개선용 -->
+ 	<select id="common.getOrgInfoListForManager" parameterClass="java.lang.String" resultClass="orgGroupVO">
+ 	
+ 	<![CDATA[
+	 	SELECT org_code, org_nm, comp_code, org_cap_no, upper_org_code, org_level, org_order
+	 	,CASE WHEN (SELECT COUNT(org_code) FROM "nx_org_group" WHERE upper_org_code=O.org_code) > 0 THEN 'Y' ELSE 'N' END is_suborg   
+		FROM "nx_org_group" O
+		WHERE upper_org_code = #upper_org_code# AND use_indc='1' 
+		
+		ORDER BY org_order
+	]]>
+ 	</select>
+ 	
+ 	<!-- 조직트리 구성을 위한 하위조직 조회 : 속도 개선용 -->
+ 	<select id="common.getUnderOrgInfoListForManager" parameterClass="java.util.HashMap" resultClass="orgGroupVO">
+ 	<![CDATA[
+	 	SELECT org_code, org_nm, comp_code, org_cap_no, upper_org_code, org_level, org_order
+			,CASE WHEN (SELECT COUNT(org_code) FROM "nx_org_group" WHERE upper_org_code=O.org_code AND use_indc='1' 
+			]]>
+			<isEqual prepend="AND" property="isKpc" compareValue="N">
+	 			is_collabor ='N'
+	 		</isEqual>
+	<![CDATA[		
+			) > 0 THEN 'Y' ELSE 'N' END is_suborg 
+		FROM nx_org_group O
+		WHERE use_indc='1' AND
+			org_code IN(WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+			AS
+			(
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.use_indc='1' AND g.upper_org_code=#upper_org_code#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+				FROM "nx_org_group" g, LIST sb
+				WHERE g.use_indc='1' AND g.upper_org_code=sb.org_code
+			)
+			SELECT distinct unnest(PATH) org_code FROM LIST)
+			AND (SELECT count(1) FROM nx_org_user U WHERE U.org_code=O.org_code) > 0
+	
+ 	]]>
+ 		<isEqual prepend="AND" property="isKpc" compareValue="N">
+ 		O.is_collabor ='N'
+ 	</isEqual>
+ 		ORDER BY org_order;
+ 	</select>
+ 	
+ 	
+ 	<!-- 일반사용자 정보 및 조직정보 조회 -->
+	<select id="common.getOrgInfoForUser" parameterClass="java.lang.String" resultClass="egovMap">
+	<![CDATA[
+		SELECT emp_no empno, emp_nm empnm, org_code orgcode, fn_nx_get_userorgindex(U.org_code) userupperorg 
+		FROM "nx_org_user" U
+		WHERE emp_no=#emp_no#
+	]]>
+	
+			
+	</select>
+	<!-- 조직정보 조회 -->
+	<select id="common.getOrgInfo" parameterClass="java.lang.String" resultClass="orgGroupVO">
+	<![CDATA[
+		SELECT org_code, org_nm, comp_code, org_cap_no, upper_org_code, org_level, org_order
+	 	, CASE WHEN (SELECT COUNT(*) FROM "nx_org_group" WHERE upper_org_code=O.org_code) > 0 THEN 'Y' ELSE 'N' END is_suborg
+		FROM "nx_org_group" O
+		WHERE org_code=#orgCode#
+	]]>
+			
+	</select>
+	
+	<!-- 조직장 정보 확인 -->
+ 	<select id="common.getOrgCapInfoList" parameterClass="java.lang.String" resultClass="orgGroupVO">
+ 	<![CDATA[
+	 	SELECT org_code, org_nm, comp_code, org_cap_no, upper_org_code, org_level, org_order
+	 	, CASE WHEN (SELECT COUNT(*) FROM "nx_org_group" WHERE upper_org_code=O.org_code) > 0 THEN 'Y' ELSE 'N' END is_suborg
+		FROM "nx_org_group" O
+		WHERE org_cap_no=#empno#
+		ORDER BY org_code, upper_org_code, org_order
+	]]>
+ 	</select>
+ 	
+ 	
+
+	<resultMap id="memberResult" class="memberVO">
+		<result property="userid" column="userid" />
+		<result property="password" column="password" />
+		<result property="username" column="username" />
+		<result property="email" column="email" />
+		<result property="telno" column="telno" />
+		<result property="last_pwd_date" column="last_pwd_date" />
+		<result property="role_info" column="role_info" />
+		<result property="role_code" column="role_code" />
+	</resultMap>
+
+	<select id="common.getMember" resultMap="memberResult">
+		SELECT
+			U.emp_no USERID
+			, '' AS PASSWORD
+			, U.emp_nm USERNAME
+			, U.email EMAIL
+			, '' AS TELNO
+			, '' AS LAST_PWD_DATE
+			, coalesce(C.code_desc, 'ROLE_USER') ROLE_INFO
+			, coalesce(R.user_auth, '3') ROLE_CODE
+		FROM nx_org_user U 
+		LEFT JOIN user_info R ON U.emp_no=R.id 
+		LEFT JOIN code_info C ON C.minr_code=R.user_auth AND C.majr_code='AU1'
+		WHERE U.emp_no=#id#
+	</select>
+	
+	<!-- 아이디 체크 -->
+ 	<select id="login.checkUserId" parameterClass="java.util.HashMap" resultClass="int">
+ 		<![CDATA[
+ 		SELECT COUNT(1) AS CNT
+ 		  FROM nx_org_user
+ 		 WHERE 1 = 1
+ 		   AND emp_no = #userid#
+ 		]]>
+ 	</select>
+ 	
+ 	<!--Admim Password체크 -->
+ 	<select id="login.checkPassWord" parameterClass="java.util.HashMap" resultClass="int">
+ 		<![CDATA[
+ 		SELECT COUNT(1) AS CNT
+ 		  FROM user_info
+ 		 WHERE 1 = 1
+ 		   AND id = #userid# AND pswd=#password#
+ 		]]>
+ 	</select>
+ 
+ 	<!-- 메일전송 로그 저장 -->
+	<insert id="log.InsertMailLog" parameterClass="mailSendLogVO">
+	<![CDATA[
+		INSERT INTO "if_mail_relay" (email_rgdt_date, emp_no, to_email, subj_email, body_email, evid_file_name, updt_date, result, result_message)
+		VALUES(NOW(), #emp_no#, #to_email#, #subj_email#, #body_email#, #evid_file_name#, NOW(), #result#, #result_message#);
+	]]>
+	</insert>
+
+	<!-- BPM 로그 저장 -->
+	<insert id="log.InsertBPMLog" parameterClass="bpmLogVO">
+	<![CDATA[
+		INSERT INTO "if_bpm_log" (appr_id, emp_no, bpm_id, bpm_ret_code, rgdt_date, appr_commment, status_type, reqtype)
+		VALUES(#appr_id#, #emp_no#, #bpm_id#, #bpm_ret_code#, NOW(), #appr_commment#, #status_type#, #reqtype#);
+	]]>
+	</insert>
+	
+	<!-- BPM 결재정보 업데이트 if_appr_info -->
+	<update id="bpm.setUpdateApprStatusForifappr" parameterClass="bpmLogVO" >
+ 	<![CDATA[
+		UPDATE "if_appr_info" 
+		SET appr_stat_code=#bpm_ret_code#
+		WHERE appr_id=#appr_id#;
+		UPDATE "nx_user_idx_info"
+		SET appr_stat_code=#bpm_ret_code#
+		WHERE appr_id=#appr_id#;
+    ]]>   
+	</update>
+	<!-- BPM 결재정보 업데이트 소명처리시스템 if_appr_info -->
+	<update id="bpm.setPovUpdateApprStatusForifappr" parameterClass="bpmLogVO" >
+ 	<![CDATA[
+		UPDATE "if_appr_info" 
+		SET appr_stat_code=#bpm_ret_code#
+		WHERE appr_id=#appr_id#;
+		UPDATE "pov_dbi_privacylog"
+		SET appr_proc=#appr_proc#
+		WHERE appr_id=#appr_id#;
+    ]]>   
+	</update>
+	<!-- 소명 결재 승인완료 시 점수 업데이트 -->
+	<update id="bpm.setUpdateUserIdxInfoScore" parameterClass="bpmLogVO" >
+ 	<![CDATA[
+		UPDATE "nx_user_idx_info" 
+		SET score=100
+		WHERE appr_id=#appr_id#;
+    ]]>   
+	</update>
+	
+	<!-- 소명결재 승인완료시 policyfact explan_flag -> 'Y' 처리 sldm_empno, sldm_mac, sldm_ip, policy_id, event_date -->
+	<update id="bpm.setUpdatePolicyFactInfo" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "policyfact" 
+		SET explan_flag='Y'
+		WHERE sldm_empno=#sldm_empno#
+		AND policy_id=#policy_id#
+		AND to_char(event_date, 'YYYYMMDD')=#event_date#;
+    ]]>   
+	</update>
+	<!-- 	AND sldm_mac=#sldm_mac#
+		AND sldm_ip=#sldm_ip# -->
+		
+	<!-- 소명결재 승인완료시  nx_user_idx_info_day scor_curr 업데이트-->
+	<update id="bpm.setUpdateUserIdxInfoDayInfo" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "nx_user_idx_info_day" SET scor_curr =(SELECT coalesce(ROUND(AVG(score), 0), 0) 
+			FROM "nx_user_idx_info" WHERE  idx_rgdt_date=#event_date# and emp_no=#sldm_empno# and mac=#sldm_mac# and ip=#sldm_ip#)
+		WHERE idx_rgdt_date=#event_date# and emp_no=#sldm_empno# and mac=#sldm_mac# and ip=#sldm_ip#;
+    ]]>   
+	</update>
+	
+	<!-- 결재 라인 구성을 위한 직/차 상급자 조회 -->
+	<select id="common.getApprLineUserInfo" parameterClass="java.util.HashMap" resultClass="egovMap">
+ 		<![CDATA[
+ 		SELECT empno1 empno
+ 		, coalesce(empno2, '') upper1
+ 		, coalesce(empno3, '') upper2
+ 		, msg 
+		FROM fn_nx_get_apprlineempno(#empno#, #apprlinecode#);
+ 		]]>
+ 	</select>
+ 	
+ 	<!-- BPM Key 업데이트 -->
+	<update id="bpm.setUpdateApprBpmKey" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "if_appr_info" 
+		SET appr_comment=#procid#
+		WHERE appr_id=#appr_id#;
+    ]]>   
+	</update>
+	<!-- 로그인 사용자 권한별 조회 -->
+	<select id="common.getLoginUserTypeInfo" parameterClass="java.util.HashMap" resultClass="loginUserTypeVO">
+ 		<![CDATA[
+ 		WITH LIST(emp_no, emp_nm, org_code, org_nm, logintype)
+		AS(
+			SELECT u.id emp_no, o.emp_nm emp_nm, o.org_code org_code, g.org_nm org_nm, 'ADMIN' logintype
+			FROM user_info u 
+			LEFT JOIN nx_org_user o on u.id=o.emp_no
+			LEFT JOIN nx_org_group g ON o.org_code=g.org_code
+			WHERE u.id=#userid# AND u.isused = 'Y' AND '3' <> #roleCode#
+			UNION ALL
+			SELECT u.emp_no, u.emp_nm, u.org_code, g.org_nm, 'PERSONAL' 
+			FROM nx_org_user u
+			LEFT JOIN nx_org_group g ON u.org_code=g.org_code
+			WHERE u.emp_no=#userid#
+			UNION ALL
+			SELECT g.org_cap_no, o.emp_nm, g.org_code, g.org_nm, 'CAPTAIN'
+			FROM nx_org_group g
+			LEFT JOIN nx_org_user o ON g.org_cap_no=o.emp_no
+			WHERE g.org_cap_no=#userid#
+			UNION ALL
+			SELECT p.emp_no emp_no, o.emp_nm, o.org_code, g.org_nm, 'PROXY'
+			FROM proxy p
+			LEFT JOIN nx_org_user o ON p.emp_no=o.emp_no
+			LEFT JOIN nx_org_group g ON o.org_code=g.org_code
+			WHERE p.proxy_emp_no=#userid#
+		)SELECT emp_no, emp_nm, org_code, org_nm, logintype FROM LIST ORDER BY logintype DESC
+ 		]]>
+ 	</select>
+ 	
+ 	<!-- 공지사항 상세페이지 -->
+	<select id="common.getMainNoticeInfo" resultClass="noticeVO">
+ 	<![CDATA[
+ 		SELECT 
+			sq_no,
+  			title
+		FROM "notice_info"
+ 		WHERE is_popup='Y' AND n_type='0000'
+ 		LIMIT 1;
+ 	]]>	
+ 	</select>
+ 	
+ 	<select id="dash.getMainNoticeNFaqListInfo" parameterClass="java.lang.String" resultClass="noticeVO">
+ 	<![CDATA[
+ 		SELECT sq_no, n_type, title, to_char(upd_date, 'YYYY-MM-DD') upd_date
+		FROM notice_info
+		WHERE n_type=#n_type#
+		ORDER BY sq_no DESC
+		LIMIT 5;
+ 	]]>	
+ 	</select>
+ 	
+ 	<!-- 제재처리 해제 -->
+ 	<select id="bpm.getUserSanctBlockNotice" parameterClass="bpmLogVO" resultClass="java.lang.String">
+ 	<![CDATA[
+ 		SELECT coalesce(sanc_sol_noti, '') sanc_sol_noti 
+		FROM "sanc_type" 
+		WHERE sanc_kind=(SELECT block_type::varchar FROM "if_sanc_info" WHERE sanc_id=(SELECT sanc_id FROM "nx_user_idx_info" WHERE appr_id=#appr_id# AND emp_no=#emp_no#))
+ 	]]>	
+ 	</select>
+ 	
+ 	<update id="bpm.setUpdateSancUserInfoReset" parameterClass="bpmLogVO" >
+ 	<![CDATA[
+		UPDATE "if_sanc_info" 
+		SET is_bother_on=false
+			, is_read_indc=false
+			, notice=#noti#
+			, display=#noti#
+		WHERE sanc_id=(SELECT sanc_id FROM "nx_user_idx_info" WHERE appr_id=#appr_id# AND emp_no=#emp_no#)
+    ]]>   
+	</update>
+	<!-- 접속로그 저장 -->
+	<insert id="log.setUserLoginLogoutLog" parameterClass="connectionLogVO">
+	<![CDATA[
+		INSERT INTO "conn_hist" (login_time, emp_no, ip, mac, ui_id, logout_time, rgdt_date)
+		VALUES(NOW(), #emp_no#, #ip#, #mac#, #ui_id#, null, NOW());
+	]]>
+	</insert>
+	
+	<!-- 메일전송을 위한 진단정보 조회 -->
+	<select id="mail.getPolIdxInfo" parameterClass="mailInfoVO" resultClass="java.util.HashMap">
+ 		<![CDATA[
+ 		SELECT I.idx_rgdt_date
+ 		, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) reg_date
+		, I.emp_no
+		, U.emp_nm
+		, coalesce(U.email, '') email
+		, I.mac
+		, I.pol_idx_id
+		, I.ip
+		, coalesce(I.score, 0) score
+		, coalesce(I.count, 0) count
+		, coalesce(I.appr_id, '') appr_id
+		, coalesce(I.sanc_id, '') sanc_id
+		, coalesce(P.sec_pol_desc, '') sec_pol_desc
+		, coalesce(P.sec_pol_notice, '') sec_pol_notice
+		, coalesce(D1.diag_desc, '') diag1
+		, coalesce(D2.diag_desc, '') diag2
+		, coalesce((SELECT code_desc FROM code_info WHERE majr_code='S01' AND minr_code=#sancttype#), '') sanct_type
+		, coalesce((SELECT code_desc FROM code_info WHERE majr_code='CAL' AND minr_code='01'), '****') call_addr
+		FROM nx_user_idx_info I
+		LEFT JOIN nx_org_user U ON I.emp_no=U.emp_no
+		LEFT JOIN pol_idx P ON I.pol_idx_id=P.sec_pol_id
+		LEFT JOIN diag_item_code D1 ON P.diag_majr_code=D1.diag_majr_code AND D1.diag_majr_code=D1.diag_minr_code
+		LEFT JOIN diag_item_code D2 ON P.diag_majr_code=D2.diag_majr_code AND P.diag_minr_code=D2.diag_minr_code
+		WHERE I.idx_rgdt_date=#idx_rgdt_date#
+		AND I.emp_no=#emp_no#
+		AND I.mac=#mac#
+		AND I.pol_idx_id=#pol_idx_id#
+		AND I.ip=#ip#
+ 		]]>
+ 	</select>
+ 	
+ 	<!-- 로그인실패 회수 조회 -->
+ 	<select id="log.LoginFailCountInfo" parameterClass="java.util.HashMap" resultClass="egovMap">
+ 	<![CDATA[
+ 		SELECT U.emp_no empno,
+			coalesce(F.fail_count, 0) failcnt, 
+ 			to_char(F.updt_date, 'YYYY-MM-DD HH24:MI:SS') ldate, 
+ 			to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS') ndate,
+ 			to_char((F.updt_date + #interval_val#::interval), 'YYYY-MM-DD HH24:MI:SS') rdate,
+ 			CASE WHEN NOW() < (F.updt_date + #interval_val#::interval) THEN 'Y' ELSE 'N' END isblock
+		FROM nx_org_user U
+		LEFT JOIN login_fail_status F On U.emp_no=F.emp_no
+		WHERE U.emp_no=#emp_no#;
+ 	]]>	
+ 	</select>
+ 	
+ 	<!-- 로그인실패 회수 저장 -->
+	<insert id="log.LoginFailCountInsert" parameterClass="java.lang.String">
+	<![CDATA[
+		INSERT INTO login_fail_status (emp_no, fail_count, rgdt_date, updt_date)
+		VALUES(#emp_no#, 1, NOW(), NOW());
+	]]>
+	</insert>
+	
+	<!-- 로그인실패 회수 업데이트 -->
+	<update id="log.LoginFailCountUpdate" parameterClass="java.lang.String" >
+ 	<![CDATA[
+		UPDATE login_fail_status
+		SET fail_count=fail_count+1, updt_date=NOW()
+		WHERE emp_no=#emp_no#;
+    ]]>   
+	</update>
+	
+	<!-- 로그인실패 회수 초기화 삭제 -->
+	<delete id="log.LoginFailCountDelete" parameterClass="java.lang.String">
+ 		<![CDATA[
+ 		DELETE FROM login_fail_status
+ 		  WHERE emp_no = #emp_no#
+ 		]]>
+ 	</delete>
+ 	<!-- 소명처리를 위한 소명정보 조회 -->
+ 	<select id="commmon.ApprInfo" parameterClass="java.lang.String" resultClass="apprInfoVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			appr.appr_id
+ 		  ,appr.emp_no
+ 		  ,appr.reqtype
+ 		  ,appr.appr_line_code
+ 		  ,appr.appr_stat_code
+ 		  ,appr.appr_comment
+ 		  ,appr.reqtype
+		FROM if_appr_info appr
+		WHERE  appr.appr_id =#apprid#;
+ 	]]>	
+ 	</select>
+</sqlMap>

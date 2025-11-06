@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="user">
+	<typeAlias alias="userinfoVO" type="sdiag.man.service.UserinfoVO"/>
+	<typeAlias alias="searchVO" type="sdiag.man.service.SearchVO"/>
+	<typeAlias alias="memberVO" type="sdiag.member.service.MemberVO"/>
+
+	<sql id="user.SearchWhereCondition">
+			<isNotEmpty property="searchKeyword">
+				<isEqual prepend="AND" property="searchCondition" compareValue="0">
+					title LIKE CONCAT('%',#searchKeyword#,'%') OR contents LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				<isEqual prepend="AND" property="searchCondition" compareValue="1">
+					UI.id LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>		
+				<isEqual prepend="AND" property="searchCondition" compareValue="2">
+					OU.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				<isEqual prepend="AND" property="searchCondition" compareValue="UP1">
+					U.emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>	
+				<isEqual prepend="AND" property="searchCondition" compareValue="UP2">
+					U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>	
+			</isNotEmpty>
+	</sql>
+	
+	<!-- 사용자 정보 LIST -->
+	<select id="user.getManUserList" parameterClass="searchVO"  resultClass="userinfoVO">
+ 	<![CDATA[
+ 		SELECT    UI.id
+				, (SELECT code_desc FROM "code_info" WHERE majr_code='AN1' AND minr_code=UI.user_auth) user_auth
+				, OU.email
+				, UI.email_indc
+				, UI.emp_indc
+				, OU.emp_nm
+				, UI.pswd
+				, UI.mac
+				, UI.ip
+				, UI.rgdt_date
+				, UI.updt_date
+				, OU.emp_no
+				, OU.posn_nm
+				, UI.stat_indc
+				, UI.isused
+		 FROM 	  user_info UI,
+				 nx_org_user OU
+		WHERE 	  UI.id = OU.emp_no
+ 	]]>
+ 	<include refid="user.SearchWhereCondition" />
+ 	<![CDATA[
+ 		ORDER BY OU.emp_nm
+ 	]]>	
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#; 
+		
+ 	</select>
+ 	<!-- 사용자 정보 -->
+	<select id="user.getManUserInfo" parameterClass="java.lang.String"  resultClass="userinfoVO">
+ 	<![CDATA[
+ 		SELECT    UI.id
+				, UI.user_auth
+				, UI.email_indc
+				, UI.emp_indc
+				, OU.emp_nm
+				, UI.pswd
+				, UI.mac
+				, UI.ip
+				, UI.stat_indc
+				, UI.isused
+		 FROM 	  user_info UI 
+		LEFT JOIN nx_org_user OU ON UI.id = OU.emp_no
+		WHERE 	  UI.id = #uid#
+ 	]]>
+ 	</select>
+	<select id="user.getManUserListTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+			SELECT
+				COUNT(*)
+			FROM user_info UI,
+				 nx_org_user OU
+			WHERE 	  UI.id = OU.emp_no
+	]]>	
+	<include refid="user.SearchWhereCondition" />	
+	</select>
+	<!-- 사용자 수정 -->
+	<update id="user.setManUserUpdate" parameterClass="userinfoVO">
+	<![CDATA[
+	UPDATE "user_info"
+		SET user_auth =	#user_auth#,
+			email_indc = #email_indc#,
+			mac = #mac#,
+			ip = #ip#,
+			updt_date = NOW(),
+			stat_indc = #stat_indc#,
+			isused = #isused#
+	 WHERE id = #id#
+	]]>
+	</update> 	
+		
+	<!-- 사용자 추가를 위한 사원검색 -->
+	<select id='user.getManAddUserSearchUserList' parameterClass="searchVO" resultClass="userinfoVO">
+	<![CDATA[
+ 		SELECT O.org_nm, U.emp_no, U.emp_nm, U.org_code
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" O ON U.org_code=O.org_code
+		WHERE U.emp_no NOT IN (SELECT id FROM user_info)
+	]]>
+	<include refid="user.SearchWhereCondition" />	
+	<![CDATA[
+		ORDER BY O.org_nm, U.emp_nm;
+ 	]]>
+	</select>	
+	<!-- 사용자 추가전 중복 아이디 체크 -->
+	<select id='user.getManUserExistCheck' parameterClass="userinfoVO" resultClass="int">
+	<![CDATA[
+ 		SELECT COUNT(*)
+		FROM "user_info" 
+		WHERE id=#id#
+	]]>
+	</select>
+	<!-- 사용자 추가 -->
+	<insert id="user.setManUserInsert"  parameterClass="userinfoVO">
+	<![CDATA[
+		INSERT INTO "user_info"
+		(
+			id 
+		  , user_auth
+		  , email_indc
+		  , emp_indc
+		  , pswd
+		  , mac
+		  , ip
+		  , rgdt_date
+		  , stat_indc
+		  , isused
+		)
+		VALUES
+		(
+			#id#
+		  , #user_auth#
+		  , #email_indc#
+		  , 'Y'
+		  , ''
+		  , #mac#
+		  , #ip#
+		  , NOW()
+		  , #stat_indc#
+		  , #isused#
+		);
+	]]>
+	</insert>
+	
+	<!-- 사용자 정보 조회 -->	
+	<select id='user.getOrgUserInfo' parameterClass="java.lang.String"  resultClass="memberVO">
+	<![CDATA[
+ 		SELECT u.emp_no userid
+ 			, u.emp_nm username
+ 			, u.email email
+ 			, u.org_code orgcode
+ 			, u.title_code titlecode
+ 			, u.title_nm titlename
+ 			, u.level_code levelcode
+ 			, u.level_nm levelname
+ 			, u.comp_code isEmp
+ 			, CASE WHEN (SELECT Count(*) FROM proxy p WHERE p.proxy_emp_no=u.emp_no) > 0 THEN 'Y' ELSE 'N' END isProxy
+		FROM "nx_org_user" u
+		WHERE u.emp_no=#emp_no#
+	]]>
+	</select>
+	
+	<!-- 사용자 정보 LIST Export Excel -->
+	<select id="user.getManUserListForExportExcel" parameterClass="searchVO"  resultClass="java.util.HashMap">
+ 	<![CDATA[
+ 		SELECT    UI.id
+				, (SELECT code_desc FROM "code_info" WHERE majr_code='AN1' AND minr_code=UI.user_auth) user_auth
+				, coalesce(OU.email, '') email
+				, coalesce(UI.email_indc, '') email_indc
+				, coalesce(UI.emp_indc, '') emp_indc
+				, coalesce(OU.emp_nm, '') emp_nm
+				, coalesce(UI.mac, '') mac
+				, coalesce(UI.ip, '') ip
+				, to_char(UI.rgdt_date, 'YYYY-MM-DD') rgdt_date
+				, OU.emp_no
+				, coalesce(OU.posn_nm, '') posn_nm
+				, coalesce(UI.isused, '') isused
+		 FROM 	  user_info UI,
+				 nx_org_user OU
+		WHERE 	  UI.id = OU.emp_no
+ 	]]>
+ 	<include refid="user.SearchWhereCondition" />
+ 	<![CDATA[
+ 		ORDER BY OU.emp_nm
+ 	]]>	
+	</select>	
+	
+	<!-- 사용자 삭제 -->
+	<delete id="user.setManUserDelete"  parameterClass="userinfoVO">
+	<![CDATA[
+		DELETE FROM "user_info" WHERE id=#id#;
+	]]>
+	</delete>
+  
+	<!-- 차단 계정 정보 LIST -->
+	<select id="user.getManBlockUserList" parameterClass="searchVO"  resultClass="java.util.HashMap">
+ 	<![CDATA[
+ 		SELECT F.emp_no, 
+			F.fail_count,
+			(SELECT code_desc FROM code_info WHERE majr_code='L01' AND minr_code='02') block_count,
+			to_char(F.updt_date, 'YYYY-MM-DD HH24:MI:SS') updt_date,
+			U.emp_nm,
+			U.posn_nm,
+			U.email
+		 FROM login_fail_status F
+		 LEFT JOIN nx_org_user U ON F.emp_no=U.emp_no
+		 WHERE 1=1
+ 	]]>
+ 	<include refid="user.SearchWhereCondition" />
+ 	<![CDATA[
+ 		ORDER BY U.emp_nm
+ 	]]>	
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#; 
+		
+ 	</select>
+ 	
+	<select id="user.getManBlockUserListTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+		 SELECT
+			COUNT(*)
+		 FROM login_fail_status F
+		 LEFT JOIN nx_org_user U ON F.emp_no=U.emp_no
+		 WHERE 1=1
+	]]>	
+	<include refid="user.SearchWhereCondition" />	
+	</select>
+	
+	<!-- 차단 계정 초기화(삭제) -->
+	<delete id="user.setManBlockUserDelete" parameterClass="java.lang.String">
+ 	<![CDATA[
+		DELETE FROM login_fail_status WHERE emp_no=#empno#;
+	]]>
+ 	</delete>
+</sqlMap>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="serverDiag">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="codeInfo" type="sdiag.com.service.CodeInfoVO"/>
+	
+	 
+	<select id="serverDiag.getPolIdList"  resultClass="egovMap">
+ 	<![CDATA[
+		SELECT trim(A.add_info1) pol_id, B.sec_pol_desc  policy_name
+		FROM code_info A, pol_idx B
+		WHERE A.majr_code ='SPI' 
+		AND A.use_indc ='Y' 
+		AND A.minr_code  <>'00'	
+		AND trim(A.add_info1) = B.sec_pol_id
+ 	]]>
+ 	</select>
+</sqlMap>

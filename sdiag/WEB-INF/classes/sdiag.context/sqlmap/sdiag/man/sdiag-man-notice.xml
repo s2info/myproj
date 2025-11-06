@@ -1,0 +1,962 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="notice">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="noticeVO" type="sdiag.board.service.NoticeVO"/>
+	<typeAlias alias="searchVO" type="sdiag.man.service.SearchVO"/>
+	<typeAlias alias="dignosisItemVO" type="sdiag.man.service.DignosisItemVO"/>
+	<typeAlias alias="userinfoVO" type="sdiag.man.service.UserinfoVO"/>
+	<typeAlias alias="codeInfoVO" type="sdiag.com.service.CodeInfoVO"/>
+	<typeAlias alias="qnaVO" type="sdiag.board.service.QnaVO"/>
+	<typeAlias alias="hashMap" type="java.util.HashMap"/>
+	
+	<typeAlias alias="excePtionRulerVO" type="sdiag.man.service.ExcePtionRulerVO"/>
+	
+	<sql id="community.listSearchWhere">
+			<isNotEmpty property="searchKeyword">
+				<isEqual prepend="AND" property="searchCondition" compareValue="0">
+					title LIKE CONCAT('%',#searchKeyword#,'%') OR contents LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				<isEqual prepend="AND" property="searchCondition" compareValue="1">
+					title LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>		
+				<isEqual prepend="AND" property="searchCondition" compareValue="2">
+					contents LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				<!-- 예외자 -->
+				<isEqual prepend="AND" property="searchCondition" compareValue="3">
+					OUH.emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				<isEqual prepend="AND" property="searchCondition" compareValue="4">
+					U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				
+				<isEqual prepend="AND" property="searchCondition" compareValue="5">
+					org_nm_2 LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				
+				<!-- 대무자 -->
+				<isEqual prepend="AND" property="searchCondition" compareValue="7">
+					P.emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				<isEqual prepend="AND" property="searchCondition" compareValue="8">
+					U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+				</isEqual>
+				<!-- 대무자 끝-->
+			</isNotEmpty>
+	</sql>
+	
+	<!-- 공지사항 LIST -->
+	<select id="notice.getNoticeList" parameterClass="searchVO"  resultClass="noticeVO">
+ 	<![CDATA[
+ 		SELECT 
+			N.sq_no,
+  			N.n_type,
+  			N.contents,
+  			N.title,
+  			N.read_cnt,
+  			N.status_cd,
+  			to_char(N.upd_date, 'YYYY-MM-DD') upd_date,
+  			N.is_popup,
+  			U.emp_nm upd_user,
+  			CASE WHEN to_char(N.upd_date, 'YYYYMMDD') >= to_char(current_date-(SELECT coalesce(add_info1, '7')::int FROM code_info WHERE majr_code='CFG' AND minr_code='NEW'), 'YYYYMMDD') THEN 'Y' ELSE 'N' END is_new,
+        	coalesce(L.read_count, 0) read_count
+		FROM "notice_info" N
+		LEFT JOIN "nx_org_user" U ON N.upd_user=U.emp_no
+		LEFT JOIN board_read_log L ON L.seq_no=N.sq_no AND L.board_type=N.n_type AND L.emp_no=#emp_no#
+		WHERE n_type='0000'
+ 	]]>
+ 	<include refid="community.listSearchWhere" />
+ 	<![CDATA[
+ 		ORDER BY sq_no DESC
+ 	]]>	
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#; 
+		
+ 	</select>
+	<select id="notice.getNoticeTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+			SELECT
+				COUNT(*)
+			FROM "notice_info" N
+			WHERE N.n_type='0000'
+	]]>	
+	<include refid="community.listSearchWhere" />	
+	</select>
+	
+	<!-- FAQ LIST -->
+ 	<select id="community.getFaqList" parameterClass="searchVO"  resultClass="noticeVO">
+ 	<![CDATA[
+ 		SELECT 
+			N.sq_no,
+  			N.n_type,
+  			N.contents,
+  			N.title,
+  			N.read_cnt,
+  			N.status_cd,
+  			N.upd_user,
+  			to_char(N.upd_date, 'YYYY-MM-DD') upd_date,
+  			N.is_popup,
+  			CASE WHEN to_char(N.upd_date, 'YYYYMMDD') >= to_char(current_date-(SELECT coalesce(add_info1, '7')::int FROM code_info WHERE majr_code='CFG' AND minr_code='NEW'), 'YYYYMMDD') THEN 'Y' ELSE 'N' END is_new,
+        	coalesce(L.read_count, 0) read_count
+		FROM "notice_info" N
+		LEFT JOIN board_read_log L ON L.seq_no=N.sq_no AND L.board_type=N.n_type AND L.emp_no=#emp_no#
+		WHERE N.n_type = '0001'
+ 	]]>
+ 	<include refid="community.listSearchWhere" />
+ 	<![CDATA[
+ 		ORDER BY N.sq_no DESC
+ 	]]>	
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#; 
+ 	</select>
+ 	
+ 	<!-- FAQ CNT -->
+	<select id="community.getFaqTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+			SELECT
+				COUNT(*)
+			FROM "notice_info" N
+			WHERE N.n_type = '0001'
+	]]>	
+	<include refid="community.listSearchWhere" />			
+	</select>
+	
+	<!-- 공지사항 Insert -->
+	<insert id="notice.noticeinsert"  parameterClass="noticeVO">
+	<isEqual property="is_popup" compareValue="Y">
+	<![CDATA[
+	 	UPDATE "notice_info" SET is_popup='N' WHERE n_type='0000';
+	]]>			
+	</isEqual>	
+	<![CDATA[
+		INSERT INTO "notice_info"
+		(
+			sq_no
+		  , n_type
+		  , contents
+		  , title
+		  , read_cnt
+		  , status_cd
+		  , upd_user
+		  , upd_date
+		  , is_popup
+		)
+		VALUES
+		(
+			#sq_no#
+		  , '0000'
+		  , #contents#
+		  , #title#
+		  , 0
+		  , #status_cd#
+		  , #upd_user#
+		  , NOW()
+		  , #is_popup#
+		);
+	]]>
+	</insert>
+ 	<select id="notice.noticemaxseq" resultClass="java.lang.Integer">
+ 	<![CDATA[
+ 			SELECT coalesce(MAX(sq_no), 0) + 1 nseq FROM "notice_info";
+ 	]]>
+ 	</select>
+	
+	<!-- 공지사항 상세페이지 -->
+	<select id="notice.getNoticeInfo" parameterClass="java.lang.Integer"  resultClass="noticeVO">
+ 	<![CDATA[
+ 		SELECT 
+			sq_no,
+  			n_type,
+  			contents,
+  			title,
+  			read_cnt,
+  			status_cd,
+  			upd_user,
+  			to_char(upd_date, 'YYYY-MM-DD') upd_date,
+  			is_popup
+		FROM "notice_info"
+ 	]]>
+ 		WHERE sq_no=#sqno#
+ 	</select>
+ 	
+ 	<!-- 공지사항 update -->
+	<update id="community.noticeRegisterUpdate" parameterClass="noticeVO">
+	<isEqual property="is_popup" compareValue="Y">
+	<![CDATA[
+	 	UPDATE "notice_info" SET is_popup='N' WHERE n_type='0000';
+	]]>			
+	</isEqual>	
+	<![CDATA[
+	UPDATE "notice_info"
+		SET title =	#title#,
+			contents = #contents#,
+			upd_user = #upd_user#,
+			upd_date = NOW(),
+			is_popup=#is_popup#
+	 WHERE sq_no = #sq_no#;
+	]]>
+	</update> 
+ 	
+ 	<!-- 공지사항 삭제 -->
+ 	<delete id="community.NoticelistDelete" parameterClass="noticeVO">
+	<![CDATA[
+		DELETE FROM "notice_info"	
+			  WHERE
+				sq_no = #sq_no# ;
+		]]>
+	</delete>
+ 	
+ 	<!-- 공지사항 조회수 증가 -->
+	<update id="community.setCommunityReadCount" parameterClass="java.lang.Long">
+		<![CDATA[
+			UPDATE "notice_info" SET read_cnt = COALESCE(read_cnt, 0) + 1 WHERE sq_no = #sqno#;
+		]]>	
+	</update>
+ 	
+ 	<!-- 예외자 관리 -->
+ 	<select id="user.getExcePtionRulerList" parameterClass="searchVO"  resultClass="excePtionRulerVO">
+ 	<![CDATA[
+ 		SELECT   OUH.emp_no
+ 				,U.emp_nm
+				,OUH.org_nm_1
+				,u.posn_nm as org_nm_2     
+				,OUH.org_nm_3
+				,OUH.org_nm_4
+				,CONCAT(OUH.emp_no, ' / ', U.emp_nm) as proxyEmpNo
+				, U.title_nm level_nm
+         FROM expn EX 
+         LEFT JOIN "nx_org_user_hier" OUH ON OUH.emp_no = EX.emp_no
+         LEFT JOIN "nx_org_user" U ON EX.emp_no=U.emp_no
+         WHERE 1=1
+        
+ 	]]>
+ 	<!--  AND U.stat='1' -->
+ 	<include refid="community.listSearchWhere" />
+ 	<![CDATA[
+ 		ORDER BY U.emp_nm
+	]]>
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#; 
+ 	</select>
+ 	
+ 	<!-- 예외자 TotalCount -->
+ 	<select id="user.getExceptionTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+		SELECT
+			COUNT(*)
+		FROM expn EX 
+        LEFT JOIN "nx_org_user_hier" OUH ON OUH.emp_no = EX.emp_no
+        LEFT JOIN "nx_org_user" U ON EX.emp_no=U.emp_no
+        WHERE 1=1
+	]]>	
+<!-- 	AND  U.stat='1' -->
+	<include refid="community.listSearchWhere" />	
+	</select>
+	
+	<!-- 예외자PopUp TotalCount -->
+ 	<select id="user.getExpnPopTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+			SELECT
+					COUNT(*)
+			  FROM   "nx_org_user_hier" OUH , 
+         	   		 nx_org_user OU
+      		WHERE    OUH.emp_no = OU.emp_no
+      	  AND OUH.title_code in ( '03',  '04') 
+	]]>	
+	<include refid="community.listSearchWhere" />	
+	</select>
+	
+ 	
+ 
+ 	<!-- 예외자 추가검색   AND EX.emp_no IS NULL	-->
+ 	<select id="user.expnListPopUplist" parameterClass="java.util.HashMap" resultClass="egovMap">
+ 	<![CDATA[
+ 		SELECT   coalesce(OUH.org_nm_2, '주식회사 케이티') as orgnm
+			   , OUH.emp_no  	as empno
+      		   , coalesce(OU.emp_nm, '')   	as empnm
+			   , coalesce(OU.level_code, '')	as levelcode
+			   , coalesce(OU.level_nm, '')	as levelnm
+			   , coalesce(OUH.title_code, '') as titlecode
+			   , coalesce(OUH.title_nm, '')	as titlenm
+			   , case when coalesce(EX.emp_no, '') ='' then 'N' else 'Y' END as isexpn
+         FROM   "nx_org_user_hier" OUH
+        LEFT JOIN nx_org_user OU ON OUH.emp_no=OU.emp_no
+        LEFT JOIN expn EX ON OUH.emp_no=EX.emp_no
+        where 1=1
+ 	]]>	
+ 	<isEqual property="levelcondit" compareValue="000">
+ 		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			OUH.emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			OU.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>		
+ 	</isEqual>
+ 	<isNotEqual prepend="AND" property="levelcondit" compareValue="000">
+			OU.title_code = #levelcondit#
+	</isNotEqual>
+ 		
+ 	</select>
+ 
+ 	<!-- SELECT DISTINCT title_code, title_nm
+  FROM nx_org_user_hier 
+  WHERE title_nm <> '' AND title_code <= '007'
+  ORDER BY title_code;
+   -->
+   <select id="user.expnListPopUpOrgUserTitleCodelist" resultClass="egovMap">
+ 	<![CDATA[
+ 		SELECT DISTINCT title_code titlecode, title_nm titlenm
+		FROM nx_org_user_hier 
+		WHERE title_nm <> '' AND title_code <= '006'
+		ORDER BY title_code;
+ 	]]>	
+	
+ 	</select>
+   
+ 	
+ 	<!-- 예외자 insert -->
+ 	<insert id="user.setexpnUserInsert" parameterClass="java.util.HashMap">
+ 	<![CDATA[
+ 		INSERT INTO expn (emp_no, emp_nm, rgdt_date) 	
+ 	]]>
+ 	<dynamic>
+ 		<iterate prepend="VALUES" conjunction=", " property="userList">
+ 			(
+ 				  #userList[].empno#
+ 				, (SELECT emp_nm FROM nx_org_user WHERE emp_no=#userList[].empno#)
+				, NOW()
+ 			)
+ 		</iterate>
+ 	</dynamic>
+ 	</insert>
+ 
+ 	<!-- 예외자 삭제관리 -->
+ 	<delete id="user.expnDateDelete" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		DELETE FROM "expn" 
+    ]]>   
+    	<iterate prepend="WHERE" property="empList" open=" emp_no IN (" conjunction="," close=")">
+ 			#empList[].emp_no#
+ 		</iterate> 
+	</delete>
+ 	
+ 	<!-- 대무자 관리 -->
+ 	<select id="user.getProxyRulerList" parameterClass="searchVO"  resultClass="egovMap">
+ 	<![CDATA[
+ 		SELECT P.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, U.title_nm titlenm
+			, P.proxy_emp_no pempno
+			, PU.emp_nm pempnm
+			, PG.org_nm pogrnm
+			, to_char(P.rgdt_date, 'YYYY-MM-DD') redtdate
+		FROM "proxy" P 
+		LEFT JOIN "nx_org_user" U ON P.emp_no=U.emp_no
+		LEFT JOIN "nx_org_user" PU ON P.proxy_emp_no=PU.emp_no
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		LEFT JOIN "nx_org_group" PG ON PU.org_code=PG.org_code
+		WHERE 1=1 
+ 	]]>
+ 	<include refid="community.listSearchWhere" />
+ 	<![CDATA[
+ 		ORDER BY P.proxy_emp_no
+ 		LIMIT #recordCountPerPage# OFFSET #firstIndex#; 	
+ 	]]>	
+ 	</select>
+ 	
+ 	<!-- 대무자 TotalCount -->
+ 	<select id="user.getProxyTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+		SELECT
+				COUNT(*)
+		FROM "proxy" P 
+		LEFT JOIN "nx_org_user" U ON P.emp_no=U.emp_no
+		LEFT JOIN "nx_org_user" PU ON P.proxy_emp_no=PU.emp_no
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		LEFT JOIN "nx_org_group" PG ON PU.org_code=PG.org_code
+		WHERE 1=1 
+	]]>	
+	<include refid="community.listSearchWhere" />	
+	</select>
+	
+	<!-- 대무자추가 선택조직장 조회 -->
+	<select id='user.getproxyAddSelectOrgCapInfo' parameterClass="java.lang.String" resultClass="egovMap">
+	<![CDATA[
+		SELECT O.org_code orgcode
+		,  coalesce(O.org_cap_no, '-') capno
+			, O.org_nm orgnm
+			, coalesce(U.emp_no, '-') empno
+			, coalesce(U.emp_nm, '-') empnm
+		FROM "nx_org_group" O
+		LEFT JOIN "nx_org_user" U ON O.org_cap_no=U.emp_no
+		WHERE O.org_code=#orgCode#
+	]]>	
+	</select>
+	
+	<!-- 대무자 추가를 위한 사원조회 -->
+	<select id='user.getproxyAddSearchUserList' parameterClass="java.util.HashMap" resultClass="egovMap">
+	<![CDATA[
+ 		WITH LIST(orgnm, levelnm, titlenm, empno, empnm, isproxy) AS
+		(
+		SELECT O.org_nm, U.level_nm, U.title_nm, U.emp_no, U.emp_nm, 'Y' isproxy
+		FROM "proxy" P
+		LEFT JOIN "nx_org_user" U ON P.proxy_emp_no=U.emp_no
+		LEFT JOIN "nx_org_group" O ON U.origin_org_code=O.org_code
+		WHERE P.emp_no=#capno#
+		UNION ALL
+		SELECT O.org_nm, U.level_nm, U.title_nm, U.emp_no, U.emp_nm, 'N' isproxy
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" O ON U.origin_org_code=O.org_code
+		WHERE U.emp_no NOT IN (SELECT proxy_emp_no FROM "proxy" WHERE emp_no=#capno#)
+		AND U.emp_no <> #capno#
+	]]>
+	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			U.emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>		
+	</isNotEmpty>
+	<![CDATA[
+		)SELECT * FROM LIST	
+ 	]]>
+	</select>
+	
+	<!-- 대무자 저장 -->
+	<insert id="user.setProxyUserInsert" parameterClass="java.util.HashMap">
+	<![CDATA[
+		INSERT INTO "proxy" (emp_no, proxy_emp_no, rgdt_date)
+	]]>	
+	<dynamic>
+		<iterate prepend="VALUES" conjunction=", " property="userList">
+			( 
+				  #userList[].capno# 
+				, #userList[].empno#
+				, NOW()
+				
+			)
+		</iterate>
+	</dynamic>
+	</insert>
+ 	<!-- 대무자 삭제관리 -->
+ 	<delete id="user.proxyDateDelete" parameterClass="java.util.HashMap">
+ 		<![CDATA[
+ 		DELETE FROM  "proxy"
+ 		  WHERE
+ 		  	emp_no = #emp_no# AND proxy_emp_no=#pemp_no#
+ 		]]>
+ 	</delete>
+ 	
+ 	<!-- 코드 관리 LIST -->
+ 	<select id="code.getCodeItemList" parameterClass="searchVO"  resultClass="codeInfoVO">
+ 	<![CDATA[
+ 		SELECT 
+				  majr_code
+  				, minr_code
+  				, code_desc
+  				, use_indc
+  				, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date
+  				, to_char(updt_date, 'YYYY-MM-DD') upd_date
+  				, coalesce(add_info1, '') add_info1
+		  FROM  code_info
+		  WHERE 1=1
+		  ORDER BY majr_code, minr_code;
+ 	]]>
+ 	</select>
+ 	<!-- 코드 정보 조회 -->
+ 	<select id="code.getCodeItemInfo" parameterClass="codeInfoVO"  resultClass="codeInfoVO">
+ 	<![CDATA[
+ 		SELECT 
+				  majr_code
+  				, minr_code
+  				, code_desc
+  				, use_indc
+  				, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date
+  				, to_char(updt_date, 'YYYY-MM-DD') upd_date
+  				, coalesce(add_info1, '') add_info1
+		  FROM  code_info
+		  WHERE majr_code=#majr_code# AND minr_code=#minr_code#
+		  
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 코드정보 추가 -->
+	<insert id="code.setCodeItemInsert" parameterClass="codeInfoVO">
+	<![CDATA[
+		INSERT INTO "code_info" (majr_code, minr_code, code_desc, use_indc, rgdt_date, add_info1)
+		VALUES (#majr_code#, #minr_code#, #code_desc#, #use_indc#, NOW(), #add_info1#);
+	]]>	
+	</insert>
+ 	<!-- 코드정보 수정 -->
+ 	<update id="code.setCodeItemUpdate" parameterClass="codeInfoVO">
+ 	<![CDATA[
+ 		UPDATE code_info SET code_desc=#code_desc#, use_indc=#use_indc#, add_info1=#add_info1# WHERE majr_code=#majr_code# AND minr_code=#minr_code#
+ 	]]>
+ 	</update>
+ 	
+ 	<!-- 코드정보 삭제 -->
+ 	<delete id="code.setCodeItemDelete" parameterClass="codeInfoVO">
+ 	<![CDATA[
+ 		DELETE FROM code_info WHERE majr_code=#majr_code# 
+ 	]]>
+ 	<isNotEqual prepend="AND" property="minr_code" compareValue="00">
+ 		minr_code=#minr_code#
+ 	</isNotEqual>
+ 	</delete>
+ 	
+ 	<!-- 코드 중복여부 확인-->
+	<select id="code.setCodeItemCheckExist" parameterClass="codeInfoVO" resultClass="int">
+	<![CDATA[
+			SELECT
+				COUNT(*)
+			FROM code_info
+			WHERE majr_code=#majr_code# AND minr_code=#minr_code#
+	]]>
+	</select>
+	
+	<!-- 코드항목 조회 Excel Export List -->
+ 	<select id="code.getCodeItemListForExcelExport"  resultClass="java.util.LinkedHashMap">
+ 	<![CDATA[
+ 		SELECT C.majr_code maj_code
+		, coalesce(M.code_desc, '') majr_desc 
+		, C.minr_code min_code
+		, C.code_desc min_desc
+		, C.use_indc 
+		, coalesce(C.add_info1, '') add_info1
+		FROM code_info C
+		LEFT JOIN code_info M ON M.majr_code=C.majr_code AND M.minr_code='00'
+		WHERE C.minr_code <> '00'
+		ORDER BY C.majr_code, C.minr_code
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 진단항목 조회 Excel Export List -->
+ 	<select id="dignosis.getDignosisItemListForExcelExport"  resultClass="java.util.LinkedHashMap">
+ 	<![CDATA[
+ 		SELECT C.diag_majr_code diagmaj_code
+		, M.diag_desc diagmaj_desc
+		, C.diag_minr_code diagmin_code
+		, C.diag_desc diagmin_desc
+		, C.ordr
+		, C.use_indc
+		, coalesce(C.diag_notice, '') diag_notice
+		, C.buseo_indc
+		FROM diag_item_code C
+		LEFT JOIN diag_item_code M ON M.diag_majr_code=C.diag_majr_code AND M.diag_minr_code=C.diag_majr_code
+		WHERE C.is_delete=false AND C.diag_majr_code <> C.diag_minr_code
+		ORDER BY C.diag_majr_code, C.ordr
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 진단항목 관리 LIST -->
+ 	<select id="dignosis.getDignosisItemList" parameterClass="searchVO"  resultClass="dignosisItemVO">
+ 	<![CDATA[
+ 		SELECT 
+				  diag_majr_code
+  				, diag_minr_code
+  				, diag_desc
+  				, ordr
+  				, use_indc
+  				, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date
+  				, to_char(updt_date, 'YYYY-MM-DD') upd_date
+		  FROM  diag_item_code
+		  WHERE is_delete=false
+		  ORDER BY diag_majr_code, ordr
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 진단항목 정보 조회 -->
+ 	<select id="dignosis.getDignosisItemInfo" parameterClass="dignosisItemVO"  resultClass="dignosisItemVO">
+ 	<![CDATA[
+ 		SELECT 
+				  diag_majr_code
+  				, diag_minr_code
+  				, diag_desc
+  				, ordr
+  				, use_indc
+  				, to_char(rgdt_date, 'YYYY-MM-DD') rgdt_date
+  				, to_char(updt_date, 'YYYY-MM-DD') upd_date
+  				, coalesce(diag_notice, '') diag_notice
+  				, buseo_indc
+		  FROM  diag_item_code
+		  WHERE diag_majr_code=#diag_majr_code# AND diag_minr_code=#diag_minr_code#
+		  
+ 	]]>
+ 	</select>
+ 	<!-- 진단항목 순서 업데이트 -->
+	<update id="dignosis.setDignosisItemOrderUpdate" parameterClass="java.util.HashMap">
+	<dynamic>
+		<iterate conjunction="; " property="dataList">
+			UPDATE diag_item_code SET ordr=#dataList[].orderval# WHERE diag_majr_code=#dataList[].majCode# AND diag_minr_code=#dataList[].minCode#
+		</iterate>
+	</dynamic>
+	</update>
+ 	
+ 	<!-- 진단항목 추가 -->
+	<insert id="dignosis.setDignosisItemInsert" parameterClass="dignosisItemVO">
+	<![CDATA[
+		INSERT INTO "diag_item_code" (diag_majr_code, diag_minr_code, diag_desc, ordr, use_indc, rgdt_date, diag_notice, buseo_indc)
+		VALUES (#diag_majr_code#, #diag_minr_code#, #diag_desc#, #ordr#, #use_indc#, NOW(), #diag_notice#, #buseo_indc#);
+	]]>	
+	</insert>
+ 	<!-- 진단항목 수정 -->
+ 	<update id="dignosis.setDignosisItemUpdate" parameterClass="dignosisItemVO">
+ 	<![CDATA[
+ 		UPDATE diag_item_code 
+ 		SET diag_desc=#diag_desc#, use_indc=#use_indc#, diag_notice=#diag_notice#
+ 		WHERE diag_majr_code=#diag_majr_code# AND diag_minr_code=#diag_minr_code#
+ 	]]>
+ 	</update>
+ 	<!-- 진단항목 삭제처리 -->
+ 	<update id="dignosis.setDignosisItemDelete" parameterClass="dignosisItemVO">
+ 	<![CDATA[
+ 		UPDATE diag_item_code SET is_delete=true, use_indc='N' WHERE diag_majr_code=#diag_majr_code# 
+ 	]]>
+ 	<isNotEqual prepend="AND" property="diag_minr_code" compareValue="00">
+ 		diag_minr_code=#diag_minr_code#
+ 	</isNotEqual>
+ 	</update>
+ 	
+ 	<!-- 진단항목 추가를 위한 중진단 Order Max -->
+	<select id="dignosis.setDignosisItemMaxOrder" parameterClass="java.lang.String" resultClass="int">
+	<![CDATA[
+			SELECT
+				coalesce(MAX(cast(ordr as int)), 0) + 1 
+			FROM diag_item_code
+			WHERE diag_majr_code=#majCode#
+	]]>
+	</select>
+	
+	<!-- 진단코드 중복여부 확인-->
+	<select id="dignosis.setDignosisItemCheckExist" parameterClass="dignosisItemVO" resultClass="int">
+	<![CDATA[
+			SELECT
+				COUNT(*)
+			FROM diag_item_code
+			WHERE diag_majr_code=#diag_majr_code# AND diag_minr_code=#diag_minr_code#
+	]]>
+	</select>
+ 	
+ 	
+ 	<!-- 진단항목 CNT -->
+	<select id="dignosis.getDignosisItemTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+			SELECT
+				COUNT(*)
+			FROM diag_item_code
+			WHERE 1=1 
+	]]>
+	<include refid="community.listSearchWhere" />	
+	</select>
+ 	
+ 	<!-- FAQ 상세페이지 -->
+	<select id="community.getFaqInfo" parameterClass="java.lang.Integer"  resultClass="noticeVO">
+ 	<![CDATA[
+ 		SELECT 
+			sq_no,
+  			n_type,
+  			contents,
+  			title,
+  			read_cnt,
+  			status_cd,
+  			upd_user,
+  			to_char(upd_date, 'YYYY-MM-DD') upd_date,
+  			is_popup
+		FROM "notice_info"
+ 	]]>
+ 		WHERE sq_no=#sqno#
+ 	</select>
+ 	
+ 	<!-- FAQ insert -->
+ 	<insert id="community.faqinsert"  parameterClass="noticeVO">
+	<![CDATA[
+		INSERT INTO "notice_info"
+		(
+			sq_no
+		  , n_type
+		  , contents
+		  , title
+		  , read_cnt
+		  , status_cd
+		  , upd_user
+		  , upd_date
+		  , is_popup
+		)
+		VALUES
+		(
+			#sq_no#
+		  , '0001'
+		  , #contents#
+		  , #title#
+		  , 0
+		  , #status_cd#
+		  , #upd_user#
+		  , NOW()
+		  , 'N'
+		);
+	]]>
+	</insert>
+	
+ 	<!-- FAQ update -->
+	<update id="community.faqRegisterUpdate" parameterClass="noticeVO">
+	<![CDATA[
+	UPDATE "notice_info"
+		SET title =	#title#,
+			contents = #contents#,
+			upd_user=#upd_user#,
+			upd_date = NOW()
+	 WHERE 1 = 1
+	   AND sq_no = #sq_no#
+	]]>
+	</update> 
+ 	
+ 	<!-- FAQ 삭제 -->
+ 	<delete id="community.faqlistDelete" parameterClass="noticeVO">
+	<![CDATA[
+		DELETE FROM "notice_info"	
+			  WHERE
+				sq_no = #sq_no# ;
+		]]>
+	</delete>
+	
+	<!-- 사용자관리 LIST -->
+ 	<select id="community.getUserList" parameterClass="searchVO"  resultClass="userinfoVO">
+ 	<![CDATA[
+ 		select    UI.id
+				, UI.user_auth
+				, OU.email
+				, UI.email_indc
+				, UI.emp_indc
+				, OU.emp_nm
+				, UI.pswd
+				, UI.mac
+				, UI.ip
+				, UI.rgdt_date
+				, UI.updt_date
+				, OU.emp_no
+				, OU.posn_nm
+				, UI.stat_indc
+		 FROM 	  "user_info" UI,
+				 nx_org_user OU
+		WHERE 	  UI.id = OU.emp_no
+ 	]]>
+ 		ORDER BY id DESC
+ 	</select>
+ 	
+ 	<!-- 사용자관리 CNT -->
+	<select id="community.getUserTotalCount" parameterClass="searchVO" resultClass="int">
+			SELECT
+					COUNT(*)
+			  FROM  user_info UI,
+				   nx_org_user OU
+		     WHERE  UI.id = OU.emp_no
+	</select>
+ 	
+ 	<!-- 사용자 권한등록 -->
+ 	<select id="user.userListPopUplist" parameterClass="searchVO" resultClass="userinfoVO">
+ 	<![CDATA[
+ 		SELECT   OUH.org_nm_2 			
+      		   , OUH.emp_no  			
+      		   , OU.emp_nm   			
+			   , OU.level_code			
+			   , OU.level_nm		 	
+         FROM   "nx_org_user_hier" OUH , 
+         	    nx_org_user OU
+      	WHERE    OUH.emp_no = OU.emp_no
+      	  AND OUH.title_code in ( '03',  '04') 
+ 	]]>
+ 		ORDER BY emp_no DESC
+ 	</select>
+ 	
+ 	<!-- 대무자 리스트 Export Excel -->
+ 	<select id="user.getProxyRulerListForExportExcel" parameterClass="searchVO"  resultClass="java.util.LinkedHashMap">
+ 	<![CDATA[
+ 		SELECT P.emp_no emp_no
+			, coalesce(U.emp_nm, '') emp_nm
+			, coalesce(G.org_nm, '') org_nm
+			, coalesce(U.title_nm, '') title_nm
+			, coalesce(P.proxy_emp_no, '') proxy_emp_no
+			, coalesce(PU.emp_nm, '') proxy_emp_nm
+			, coalesce(PG.org_nm, '') proxy_org_nm
+			, to_char(P.rgdt_date, 'YYYY-MM-DD') rgdt_date
+		FROM "proxy" P 
+		LEFT JOIN "nx_org_user" U ON P.emp_no=U.emp_no
+		LEFT JOIN "nx_org_user" PU ON P.proxy_emp_no=PU.emp_no
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		LEFT JOIN "nx_org_group" PG ON PU.org_code=PG.org_code
+		WHERE 1=1 
+ 	]]>
+ 	<include refid="community.listSearchWhere" />
+ 	<![CDATA[
+ 		ORDER BY P.proxy_emp_no
+ 	]]>	
+ 	</select>
+ 	
+ 	<!-- 예외자 리스트 Export Excel -->
+ 	<select id="user.getExpnRulerListForExportExcel" parameterClass="searchVO"  resultClass="java.util.LinkedHashMap">
+ 	<![CDATA[
+ 		SELECT  coalesce( OUH.emp_no, '')  emp_no
+ 				, coalesce(U.emp_nm, '') emp_nm
+				, coalesce(u.posn_nm, '') org_nm_2     
+				, coalesce(U.title_nm, '') title_nm
+         FROM expn EX 
+         LEFT JOIN "nx_org_user_hier" OUH ON OUH.emp_no = EX.emp_no
+         LEFT JOIN "nx_org_user" U ON EX.emp_no=U.emp_no
+         WHERE 1=1
+ 	]]>
+ 	<include refid="community.listSearchWhere" />
+ 	<![CDATA[
+ 		ORDER BY U.emp_nm
+	]]>
+ 	</select>
+ 	
+ 	
+ 	
+ 	<!-- QnA LIST -->
+	<select id="qna.getQnaList" parameterClass="searchVO"  resultClass="qnaVO">
+ 	<![CDATA[
+ 		SELECT 
+			N.sq_no,
+  			N.contents,
+  			N.title,
+  			to_char(N.upd_date, 'YYYY-MM-DD') upd_date,
+  			U.emp_nm upd_user,
+  			CASE WHEN to_char(N.upd_date, 'YYYYMMDD') >= to_char(current_date-(SELECT coalesce(add_info1, '7')::int FROM code_info WHERE majr_code='CFG' AND minr_code='NEW'), 'YYYYMMDD') THEN 'Y' ELSE 'N' END is_new,
+        	coalesce(L.read_count, 0) read_count
+		FROM "qna_info" N
+		LEFT JOIN "nx_org_user" U ON N.upd_user=U.emp_no
+		LEFT JOIN board_read_log L ON L.seq_no=N.sq_no AND L.board_type='0002' AND L.emp_no=#emp_no#
+		WHERE 1=1
+ 	]]>
+ 	<isNotEmpty property="selectedRowId">
+		AND N.upd_user = #selectedRowId#
+	</isNotEmpty>
+ 	<include refid="community.listSearchWhere" />
+ 	<![CDATA[
+ 		ORDER BY sq_no DESC
+ 	]]>	
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#; 
+		
+ 	</select>
+ 	
+ 	<!-- QnA TotalCount-->
+	<select id="qna.getQnaTotalCount" parameterClass="searchVO" resultClass="int">
+	<![CDATA[
+			SELECT
+				COUNT(*)
+			FROM "qna_info" 
+			WHERE 1=1
+	]]>	
+	<include refid="community.listSearchWhere" />	
+	</select>
+	
+	<!-- QnA 상세페이지 -->
+	<select id="qna.getQnaInfo" parameterClass="java.lang.Integer"  resultClass="qnaVO">
+ 	<![CDATA[
+ 		SELECT 
+			sq_no,
+  			contents,
+  			title,
+  			upd_user,
+  			to_char(upd_date, 'YYYY-MM-DD') upd_date,
+  			answer_contents,
+  			answer_user,
+  			to_char(answer_date, 'YYYY-MM-DD') answer_date
+		FROM "qna_info"
+ 	]]>
+ 		WHERE sq_no=#sqno#
+ 	</select>
+	
+	<!-- QnA insert -->
+ 	<insert id="qna.qnaInfoInsert"  parameterClass="qnaVO">
+	<![CDATA[
+		INSERT INTO "qna_info"
+		(
+			sq_no
+		  , contents
+		  , title
+		  , upd_user
+		  , upd_date
+		)
+		VALUES
+		(
+			#sq_no#
+		  , #contents#
+		  , #title#
+		  , #upd_user#
+		  , NOW()
+		);
+	]]>
+	</insert>
+	
+	<!-- QnA update -->
+	<update id="qna.qnaInfoUpdate" parameterClass="qnaVO">
+	<![CDATA[
+	UPDATE "qna_info"
+		SET title =	#title#,
+			contents = #contents#,
+			upd_user=#upd_user#,
+			upd_date = NOW()
+	 WHERE 1 = 1
+	   AND sq_no = #sq_no#
+	]]>
+	</update> 
+	
+	<!-- QnA answer update -->
+	<update id="qna.qnaAnswerInfoUpdate" parameterClass="qnaVO">
+	<![CDATA[
+	UPDATE "qna_info"
+		SET answer_contents =	#answer_contents#,
+			answer_user = #answer_user#,
+			answer_date = NOW()
+	 WHERE 1 = 1
+	   AND sq_no = #sq_no#
+	]]>
+	</update> 
+	
+	
+ 	<!-- QnA 삭제 -->
+ 	<delete id="qna.qnaListDelete" parameterClass="qnaVO">
+	<![CDATA[
+		DELETE FROM "qna_info"	
+			  WHERE
+				sq_no = #sq_no# ;
+		]]>
+	</delete>
+	
+	<!-- QnA 순번 조회 -->
+	<select id="qna.getQnAMaxSqno" resultClass="java.lang.Integer">
+ 	<![CDATA[
+ 			SELECT coalesce(MAX(sq_no), 0) + 1 nseq FROM "qna_info";
+ 	]]>
+ 	</select>
+	<!-- Board Read Info insert -->
+ 	<insert id="board.readLogInsert"  parameterClass="hashMap">
+	<![CDATA[
+		INSERT INTO board_read_log
+		(
+			board_type
+		  , seq_no
+		  , emp_no
+		  , read_count
+		)
+		VALUES
+		(
+			#board_type#
+		  , #seq_no#
+		  , #emp_no#
+		  , 1
+		);
+	]]>
+	</insert>
+	
+	<!--Board Read Info update -->
+	<update id="board.readLogUpdate" parameterClass="hashMap">
+	<![CDATA[
+	UPDATE board_read_log
+		SET read_count = read_count + 1
+	 WHERE board_type = #board_type# AND seq_no=#seq_no# AND emp_no=#emp_no#
+	]]>
+	</update> 
+</sqlMap>

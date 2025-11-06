@@ -1,0 +1,633 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="mail">
+	<typeAlias alias="mailSearchVO" type="sdiag.man.vo.MailSearchVO"/>
+	<typeAlias alias="memberVO" type="sdiag.member.service.MemberVO"/>
+	<typeAlias alias="mailSendInfoVO" type="sdiag.man.vo.MailSendInfoVO"/>
+	<typeAlias alias="mailTargetInfoVO" type="sdiag.man.vo.MailTargetInfoVO"/>
+	<typeAlias alias="mailPolicyInfoVO" type="sdiag.man.vo.MailPolicyInfoVO"/>
+	
+	<sql id="mail.SearchWhereCondition">
+			<isNotEmpty prepend="AND" property="search_gubun">
+				mi.gubun = #search_gubun#
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="search_is_used">
+				mi.is_used = #search_is_used#
+			</isNotEmpty>
+			<isNotEmpty prepend="AND" property="search_subject">
+				mi.subject LIKE CONCAT('%',#search_subject#,'%')
+			</isNotEmpty>
+			
+	</sql>
+	
+	<!-- 사용자 정보 LIST -->
+	<select id="mail.getMailSendInfoList" parameterClass="mailSearchVO"  resultClass="mailSendInfoVO">
+ 	<![CDATA[
+ 		SELECT    mi.mail_seq
+				, mi.gubun
+				, CASE WHEN mi.gubun = 'N' THEN '공지사항' ELSE '정책진단' END gubun_name
+				, mi.pol_type
+				, CASE mi.pol_type WHEN '04' THEN '주간 리포트' WHEN '05' THEN '월간 리포트' ELSE '' END pol_type_name
+				, mi.send_schedule
+				, CASE mi.send_type 
+					WHEN 'REG' THEN 
+						split_part(mi.send_schedule, '|', 1) || ' ' || split_part(mi.send_schedule, '|', 2) || '시 ' || split_part(mi.send_schedule, '|', 3) || '분 발송'
+					WHEN 'REP' THEN 
+					CASE split_part(mi.send_schedule, '|', 1) 
+					WHEN 'WEEK' THEN
+						'매주 ' || split_part(mi.send_schedule, '|', 3) || ' ' || split_part(mi.send_schedule, '|', 4) || '시 ' || split_part(mi.send_schedule, '|', 5) || '분 발송'
+					ELSE 
+						'매월 ' || CASE split_part(mi.send_schedule, '|', 2) WHEN 'D' THEN split_part(mi.send_schedule, '|', 3) || '일 ' || split_part(mi.send_schedule, '|', 4) || '시 ' || split_part(mi.send_schedule, '|', 5) || '분 발송'
+							   ELSE
+								substr(split_part(mi.send_schedule, '|', 2), 2, 1) || '번째 ' || split_part(mi.send_schedule, '|', 3) || ' ' || split_part(mi.send_schedule, '|', 4) || '시 ' || split_part(mi.send_schedule, '|', 5) || '분 발송'
+							   END
+					END
+					ELSE 
+						'발송일 직접입력'
+					END  send_schedule_name
+				, mi.schedule_expression
+				, mi.subject
+				, mi.contents
+				, mi.contents_top
+				, mi.contents_bottom
+				, mi.is_used
+				, CASE mi.is_used WHEN 'Y' THEN '사용' ELSE '사용중지' END is_used_name 
+				, mi.upd_user
+				, to_char(mi.rgdt_date, 'YYYY-MM-DD HH24:MI:SS') rgdt_date
+				, to_char(mi.upd_date, 'YYYY-MM-DD HH24:MI:SS') upd_date
+				, mi.sendcount
+				, mi.sendsuccesscount
+				, CASE WHEN mi.is_apply = 'Y' THEN '적용' ELSE '미적용' END is_apply_name
+				, mi.is_cap_send
+		 FROM mail_send_info mi
+		 WHERE 1=1
+ 	]]>
+ 	<include refid="mail.SearchWhereCondition" />
+ 	<![CDATA[
+ 		ORDER BY mi.rgdt_date DESC
+ 	]]>	
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#; 
+		
+ 	</select>
+ 	<select id="mail.getMailSendInfoListTotalCount" parameterClass="mailSearchVO" resultClass="int">
+	<![CDATA[
+			SELECT
+				COUNT(1)
+			FROM mail_send_info mi
+			WHERE 1=1
+	]]>	
+	<include refid="mail.SearchWhereCondition" />	
+	</select>
+ 	<!-- 메일 발송 정보 -->
+	<select id="mail.getMailSendInfo" parameterClass="mailSearchVO"  resultClass="mailSendInfoVO">
+ 	<![CDATA[
+ 		SELECT    mi.mail_seq
+				, mi.gubun
+				, mi.pol_type
+				, mi.send_schedule
+				, mi.send_type
+				, mi.schedule_expression
+				, mi.subject
+				, mi.contents
+				, mi.contents_top
+				, mi.contents_bottom
+				, mi.is_used
+				, mi.upd_user
+				, to_char(mi.rgdt_date, 'YYYY-MM-DD HH24:MI:SS') rgdt_date
+				, to_char(mi.upd_date, 'YYYY-MM-DD HH24:MI:SS') upd_date
+				, mi.batchjobname
+				, mi.sendcount
+				, mi.sendsuccesscount
+				, mi.is_apply
+				, mi.is_cap_send
+		 FROM mail_send_info mi
+		WHERE mi.mail_seq=#mail_seq#;
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 메일 발송 대상 리스트 조회 -->
+	<select id="mail.getMailSendTargetList" parameterClass="mailSearchVO"  resultClass="mailTargetInfoVO">
+ 	<![CDATA[
+ 		SELECT    mi.mail_seq
+				, mi.target_type
+				, CASE mi.target_type WHEN '1' THEN '개인' WHEN '2' THEN '조직' ELSE '그룹' END target_type_name
+				, mi.target_code
+				, mi.target_nm
+				, mi.org_type
+				, to_char(mi.rgdt_date, 'YYYY-MM-DD HH24:MI:SS') rgdt_date
+		 FROM mail_target_info mi
+		WHERE mi.mail_seq=#mail_seq#
+		ORDER BY mi.target_type;
+ 	]]>
+ 	</select>
+ 	<!-- 메일 발송 정책 리스트 조회 -->
+	<select id="mail.getMailSendPolicyList" parameterClass="mailSearchVO"  resultClass="mailPolicyInfoVO">
+ 	<![CDATA[
+ 		SELECT	P.sec_pol_id
+		 	,P.diag_majr_code majcode
+			,D1.diag_desc majdesc
+			,P.diag_minr_code mincode
+			,D2.diag_desc mindesc
+	    	,P.sec_pol_desc policyname
+	    	,to_char(mp.rgdt_date, 'YYYY-MM-DD HH24:MI:SS') rgdt_date
+	    	,CASE WheN coalesce(mp.sec_pol_id, '') <> '' THEN 'Y' ELSE 'N' END is_selected
+		FROM pol_idx P
+		LEFT JOIN diag_item_code D1 ON P.diag_majr_code=D1.diag_majr_code AND D1.diag_majr_code=D1.diag_minr_code
+		LEFT JOIN diag_item_code D2 ON P.diag_majr_code=D2.diag_majr_code AND P.diag_minr_code=D2.diag_minr_code
+		LEFT JOIN mail_pol_info mp ON mp.sec_pol_id = P.sec_pol_id AND mp.mail_seq=#mail_seq#
+		WHERE P.use_indc='Y' 
+		ORDER BY P.diag_majr_code, P.diag_minr_code , P.sec_pol_id;
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 메일 발송 정보 저장 -->
+	<insert id="mail.setMailSendInfoInsert"  parameterClass="mailSendInfoVO">
+	<![CDATA[
+		INSERT INTO mail_send_info
+		(
+			mail_seq
+		  , gubun
+		  , pol_type
+		  , send_type
+		  , send_schedule
+		  , schedule_expression
+		  , subject
+		  , contents
+		  , contents_top
+		  , contents_bottom
+		  , is_used
+		  , upd_user
+		  , rgdt_date
+		  , batchjobname
+		  , is_cap_send
+		)
+		VALUES
+		(
+			#mail_seq#
+		  , #gubun#
+		  , #pol_type#
+		  , #send_type#
+		  , #send_schedule#
+		  , #schedule_expression#
+		  , #subject#
+		  , #contents#
+		  , #contents_top#
+		  , #contents_bottom#
+		  , #is_used#
+		  , #upd_user#
+		  , NOW()
+		  , #batchjobname#
+		  , #is_cap_send#
+		);
+	]]>
+	</insert>
+	<!-- 메일 발송 New Seq -->
+ 	<select id="mail.getMailSendInfoMaxSeq" resultClass="java.lang.Long">
+ 	<![CDATA[
+ 			SELECT coalesce(MAX(mail_seq), 0) + 1 nseq FROM mail_send_info;
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 메일 발송 대상 리스트 삭제 -->
+ 	<delete id="mail.setMailSendTargetDelete" parameterClass="java.lang.Long">
+	<![CDATA[
+		DELETE FROM mail_target_info WHERE mail_seq = #mail_seq#;
+		]]>
+	</delete>
+	<!-- 메일 발송 대상 리스트 저장 -->
+	<insert id="mail.setMailSendTargetInsert"  parameterClass="mailSendInfoVO">
+	<![CDATA[
+		INSERT INTO mail_target_info
+		(
+			mail_seq
+		  , target_type
+		  , target_code
+		  , target_nm
+		  , org_type
+		  , rgdt_date
+		)
+	]]>
+	<dynamic>
+		<iterate prepend="VALUES" conjunction=", " property="mailTargetList">
+			( 
+				#mail_seq#
+				, #mailTargetList[].target_type#
+				, #mailTargetList[].target_code#
+				, #mailTargetList[].target_nm#
+				, #mailTargetList[].org_type#
+				, NOW()
+			)
+		</iterate>
+	</dynamic>
+	</insert>
+ 	
+ 	<!-- 메일 발송 정책 리스트 삭제 -->
+ 	<delete id="mail.setMailSendPolicyDelete" parameterClass="java.lang.Long">
+	<![CDATA[
+		DELETE FROM mail_pol_info WHERE mail_seq = #mail_seq#;
+		]]>
+	</delete>
+	<!-- 메일 발송 대상 리스트 저장 -->
+	<insert id="mail.setMailSendPolicyInsert"  parameterClass="mailSendInfoVO">
+	<![CDATA[
+		INSERT INTO mail_pol_info
+		(
+			mail_seq
+		  , sec_pol_id
+		  , rgdt_date
+		)
+	]]>
+	<dynamic>
+		<iterate prepend="VALUES" conjunction=", " property="mailPolicyList">
+			( 
+				#mail_seq#
+				, #mailPolicyList[].sec_pol_id#
+				, NOW()
+			)
+		</iterate>
+	</dynamic>
+	</insert>
+	
+ 	<!-- 메일 발송 정보 update -->
+	<update id="mail.setMailSendInfoUpdate" parameterClass="mailSendInfoVO">
+	<![CDATA[
+		UPDATE mail_send_info
+		SET gubun =	#gubun#,
+			pol_type = #pol_type#,
+			send_type=#send_type#,
+			schedule_expression=#schedule_expression#,
+			send_schedule=#send_schedule#,
+			subject=#subject#,
+			contents=#contents#,
+			contents_top=#contents_top#,
+			contents_bottom=#contents_bottom#,
+			is_used=#is_used#,
+			upd_user=#upd_user#,
+			upd_date = NOW(),
+			batchjobname = #batchjobname#,
+			is_apply='N',
+			is_cap_send = #is_cap_send#
+		 WHERE mail_seq = #mail_seq#;
+	]]>
+	</update> 
+ 	
+ 	<!-- 메일 발송 정보 삭제 -->
+ 	<delete id="mail.setMailSendInfoDelete" parameterClass="java.lang.Long">
+	<![CDATA[
+		DELETE FROM mail_pol_info WHERE mail_seq = #mail_seq#;
+		DELETE FROM mail_target_info WHERE mail_seq = #mail_seq#;
+		DELETE FROM mail_send_info WHERE mail_seq = #mail_seq#;
+		]]>
+	</delete>
+	<!-- 메일 발송 대상 리스트 조회 -->
+	<select id="mail.getMailTargetUserList" parameterClass="mailSearchVO" resultClass="mailTargetInfoVO">
+	<![CDATA[
+	WITH TList (emp_no, emp_nm, org_code, org_nm, email) AS
+	(
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+		FROM nx_org_user U 
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE U.stat='1' AND U.is_collabor='N' AND U.emp_no IN (SELECT target_code FROM mail_target_info WHERE mail_seq=#mail_seq# AND target_type='1')
+		AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+		UNION /*대상 조직*/
+				    SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+				    FROM nx_org_user U
+				    LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+				    WHERE U.stat='1' AND U.is_collabor='N' 
+					AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+					AND G.org_code IN (
+					 WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    
+					 (     
+					    SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                0,
+				                ARRAY[CAST(g.org_code as text)]     
+				            FROM "nx_org_group" g     
+				            WHERE g.org_code IN (SELECT target_code FROM mail_target_info WHERE mail_seq=#mail_seq# AND target_type='2') 
+				            UNION
+				            SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                0,
+				                ARRAY[CAST(g.org_code as text)]     
+				            FROM "nx_org_group" g     
+				            WHERE g.upper_org_code IN (SELECT target_code FROM mail_target_info WHERE mail_seq=#mail_seq# AND target_type='2')
+				            UNION
+				            SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                LEVEL + 1,
+				                CAST(g.org_code as text) || sb.PATH      
+				            FROM "nx_org_group" g, LIST sb     
+				            WHERE g.upper_org_code=sb.org_code    
+				          )    
+				            SELECT
+				                distinct unnest(PATH)
+				            FROM
+				                LIST L  
+					)
+				    
+		UNION /*그룹 - 개인*/
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+		FROM nx_org_user U 
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE U.emp_no IN (
+			SELECT gd.org_info
+			FROM group_info g
+			LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+			WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+			AND gd.org_type = '1'
+		)
+		AND U.stat='1' AND U.is_collabor='N' AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+		UNION /*그룹 조직*/
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+				    FROM nx_org_user U
+				    LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+				    WHERE U.stat='1' AND U.is_collabor='N' 
+					AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+					AND G.org_code IN (
+					 WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    
+					 (     
+					    SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                0,
+				                ARRAY[CAST(g.org_code as text)]     
+				            FROM "nx_org_group" g     
+				            WHERE g.org_code IN (
+						SELECT gd.org_info
+						FROM group_info g
+						LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+						WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+						AND gd.org_type = '2'
+				            ) 
+				            UNION
+				            SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                0,
+				                ARRAY[CAST(g.org_code as text)]     
+				            FROM "nx_org_group" g     
+				            WHERE g.upper_org_code IN (
+						SELECT gd.org_info
+						FROM group_info g
+						LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+						WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+						AND gd.org_type = '2'
+				            )
+				            UNION
+				            SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                LEVEL + 1,
+				                CAST(g.org_code as text) || sb.PATH      
+				            FROM "nx_org_group" g, LIST sb     
+				            WHERE g.upper_org_code=sb.org_code    
+				          )    
+				            SELECT
+				                distinct unnest(PATH)
+				            FROM
+				                LIST L  
+					)
+		UNION /*그룹 취약*/	
+		SELECT pi.emp_no, U.emp_nm, G.org_code, G.org_nm, U.email
+		FROM nx_user_idx_info pi
+		LEFT JOIN nx_org_user U ON U.emp_no=pi.emp_no
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE pi.idx_rgdt_date = to_char(current_date-1, 'YYYYMMDD') 
+		AND U.stat='1' AND U.is_collabor='N' 
+		AND pi.pol_idx_id IN (
+			SELECT gd.org_info
+			FROM group_info g
+			LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+			WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+			AND gd.org_type = '3'
+		) AND pi.score < (SELECT code_desc::int FROM code_info WHERE majr_code='C04' AND minr_code='WAN')
+		AND U.stat='1' AND U.is_collabor='N' AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+		UNION /*협력사*/
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+		FROM nx_org_user U 
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE U.collabor_code IN (
+			SELECT gd.org_info
+			FROM group_info g
+			LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+			WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+			AND gd.org_type = '4'
+		)
+		AND U.stat='1' AND U.is_collabor='N' AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+		UNION /*복무코드*/
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+		FROM nx_org_user U 
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE duty_date = to_char(current_date - 1, 'YYYYMMDD')
+		AND U.duty_cd IN (
+			SELECT gd.org_info
+			FROM group_info g
+			LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+			WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+			AND gd.org_type = '5'
+		)
+		AND U.stat='1' AND U.is_collabor='N' AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+	)SELECT emp_no, emp_nm, org_code, org_nm, email
+	FROM TList
+	LIMIT #recordCountPerPage# OFFSET #firstIndex#; 
+	]]>
+	</select>
+	<!-- 메일 발송 대상 전체 리스트 조회 -->
+	<select id="mail.getMailTargetUserListTotalCount"  parameterClass="mailSearchVO" resultClass="java.lang.Long">
+	<![CDATA[
+	WITH TList (emp_no, emp_nm, org_code, org_nm, email) AS
+	(
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+		FROM nx_org_user U 
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE U.stat='1' AND U.is_collabor='N' AND U.emp_no IN (SELECT target_code FROM mail_target_info WHERE mail_seq=#mail_seq# AND target_type='1')
+		AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+		UNION /*대상 조직*/
+				    SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+				    FROM nx_org_user U
+				    LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+				    WHERE U.stat='1' AND U.is_collabor='N' 
+					AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+					AND G.org_code IN (
+					 WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    
+					 (     
+					    SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                0,
+				                ARRAY[CAST(g.org_code as text)]     
+				            FROM "nx_org_group" g     
+				            WHERE g.org_code IN (SELECT target_code FROM mail_target_info WHERE mail_seq=#mail_seq# AND target_type='2') 
+				            UNION
+				            SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                0,
+				                ARRAY[CAST(g.org_code as text)]     
+				            FROM "nx_org_group" g     
+				            WHERE g.upper_org_code IN (SELECT target_code FROM mail_target_info WHERE mail_seq=#mail_seq# AND target_type='2')
+				            UNION
+				            SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                LEVEL + 1,
+				                CAST(g.org_code as text) || sb.PATH      
+				            FROM "nx_org_group" g, LIST sb     
+				            WHERE g.upper_org_code=sb.org_code    
+				          )    
+				            SELECT
+				                distinct unnest(PATH)
+				            FROM
+				                LIST L  
+					)
+				    
+		UNION /*그룹 - 개인*/
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+		FROM nx_org_user U 
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE U.emp_no IN (
+			SELECT gd.org_info
+			FROM group_info g
+			LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+			WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+			AND gd.org_type = '1'
+		)
+		AND U.stat='1' AND U.is_collabor='N' AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+		UNION /*그룹 조직*/
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+				    FROM nx_org_user U
+				    LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+				    WHERE U.stat='1' AND U.is_collabor='N' 
+					AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+					AND G.org_code IN (
+					 WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    
+					 (     
+					    SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                0,
+				                ARRAY[CAST(g.org_code as text)]     
+				            FROM "nx_org_group" g     
+				            WHERE g.org_code IN (
+						SELECT gd.org_info
+						FROM group_info g
+						LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+						WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+						AND gd.org_type = '2'
+				            ) 
+				            UNION
+				            SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                0,
+				                ARRAY[CAST(g.org_code as text)]     
+				            FROM "nx_org_group" g     
+				            WHERE g.upper_org_code IN (
+						SELECT gd.org_info
+						FROM group_info g
+						LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+						WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+						AND gd.org_type = '2'
+				            )
+				            UNION
+				            SELECT
+				                g.org_code,
+				                g.upper_org_code,
+				                g.org_nm,
+				                LEVEL + 1,
+				                CAST(g.org_code as text) || sb.PATH      
+				            FROM "nx_org_group" g, LIST sb     
+				            WHERE g.upper_org_code=sb.org_code    
+				          )    
+				            SELECT
+				                distinct unnest(PATH)
+				            FROM
+				                LIST L  
+					)
+		UNION /*그룹 취약*/	
+		SELECT pi.emp_no, U.emp_nm, G.org_code, G.org_nm, U.email
+		FROM nx_user_idx_info pi
+		LEFT JOIN nx_org_user U ON U.emp_no=pi.emp_no
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE pi.idx_rgdt_date = to_char(current_date-1, 'YYYYMMDD') 
+		AND U.stat='1' AND U.is_collabor='N' 
+		AND pi.pol_idx_id IN (
+			SELECT gd.org_info
+			FROM group_info g
+			LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+			WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+			AND gd.org_type = '3'
+		) AND pi.score < (SELECT code_desc::int FROM code_info WHERE majr_code='C04' AND minr_code='WAN')
+		AND U.stat='1' AND U.is_collabor='N' AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+		UNION /*협력사*/
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+		FROM nx_org_user U 
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE U.collabor_code IN (
+			SELECT gd.org_info
+			FROM group_info g
+			LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+			WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+			AND gd.org_type = '4'
+		)
+		AND U.stat='1' AND U.is_collabor='N' AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+		UNION /*복무코드*/
+		SELECT U.emp_no, U.emp_nm,G.org_code, G.org_nm, U.email
+		FROM nx_org_user U 
+		LEFT JOIN nx_org_group G ON  U.org_code=G.org_code
+		WHERE duty_date = to_char(current_date - 1, 'YYYYMMDD')
+		AND U.duty_cd IN (
+			SELECT gd.org_info
+			FROM group_info g
+			LEFT JOIN group_detail_info gd ON gd.group_code=g.group_code 
+			WHERE g.group_code IN (select target_code::int from mail_target_info where target_type = '3' and mail_seq=#mail_seq#)
+			AND gd.org_type = '5'
+		)
+		AND U.stat='1' AND U.is_collabor='N' AND U.emp_no NOT IN (SELECT emp_no FROM mail_relay_exception WHERE op_indc=#op_indc#)
+	)SELECT COUNT(1)
+	FROM TList
+	]]>
+	</select>
+	
+	
+	<select id="mail.getFileName" parameterClass="String"  resultClass="String">
+ 	<![CDATA[
+ 		SELECT    mi.mail_seq
+				, mi.gubun
+				, mi.pol_type
+				, mi.send_schedule
+				, mi.send_type
+				, mi.schedule_expression
+				, mi.subject
+				, mi.contents
+				, mi.contents_top
+				, mi.contents_bottom
+				, mi.is_used
+				, mi.upd_user
+				, to_char(mi.rgdt_date, 'YYYY-MM-DD HH24:MI:SS') rgdt_date
+				, to_char(mi.upd_date, 'YYYY-MM-DD HH24:MI:SS') upd_date
+				, mi.batchjobname
+				, mi.sendcount
+				, mi.sendsuccesscount
+				, mi.is_apply
+				, mi.is_cap_send
+		 FROM mail_send_info mi
+		WHERE mi.mail_seq=#mail_seq#;
+ 	]]>
+ 	</select>
+</sqlMap>	

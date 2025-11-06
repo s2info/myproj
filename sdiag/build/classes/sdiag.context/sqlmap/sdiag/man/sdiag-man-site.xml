@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="man">
+		
+<typeAlias alias="communitynoticeVO" type="sdiag.board.service.NoticeVO"/>
+<typeAlias alias="communitysearchVO" type="sdiag.man.service.UserVO"/>
+<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+
+<!-- 공지사항 List 
+<select id="notice.getNoticeList" parameterClass="communitynoticeVO" resultClass="communitynoticeVO">
+	<![CDATA[
+		SELECT sq_no, 
+			   n_type, 
+			   contents, 
+			   title, 
+			   read_cnt, 
+			   status_cd, 
+			   upd_user,    
+			   to_char(upd_date,'YYYYMMDD') as upd_date, 
+			   is_popup
+ 			  FROM "NOTICE_INFO"
+	]]>		
+</select>	
+-->	
+<!--  공지사항 insert 
+<insert id="notice.noticeRegisterInsert" parameterClass="communitynoticeVO">	
+	<![CDATA[
+	INSERT INTO "NOTICE_INFO" 
+	(	
+		sq_no,
+		n_type, 
+		contents, 
+		title, 
+		read_cnt, 
+		status_cd, 
+		upd_user, 
+        upd_date, 
+        is_popup
+    )
+	VALUES
+	(
+		22,
+		'0000',
+		'공지사항', 
+		'공지사항',
+		0,
+		'공지사항',
+		'홍길동',
+		now(),
+		'Y'
+	)
+	]]>
+</insert> 	
+-->
+<!-- 공지사항 update 
+<update id="notice.noticeRegisterUpdate" parameterClass="communitynoticeVO">
+	<![CDATA[
+	UPDATE "NOTICE_INFO"
+		SET n_type= #n_type#,
+			title= #title#,
+			contents= #contents#,
+			status_cd= #status_cd#, 
+       		upd_date= NOW(),
+       		is_popup= #is_popup#
+	 WHERE 1 = 1
+	   AND sq_no = #sq_no#
+	]]>
+</update> 	
+
+<select id="community.getMaxSqNo" resultClass="communitynoticeVO">
+	SELECT MAX(sq_no) AS sq_no FROM "NOTICE_INFO"
+</select>
+
+-->
+<!-- 예외자 관리 List 	
+<select id="user.getUserList" parameterClass="communitysearchVO" resultClass="communitysearchVO">
+	<![CDATA[
+		SELECT    E.emp_no		AS empNo
+				, E.emp_nm 		AS empNm
+				, E.org_code	AS orgCode
+				, to_char(E.rgdt_date ,'YYYY-MM-DD')	AS rgdtDate
+				, to_char(E.updt_date ,'YYYY-MM-DD')	AS updtDate
+				, CONCAT(E.emp_no, '/' ,P.proxy_emp_no )AS ProxyEmpNo
+  		  FROM 	  "EXPN" E ,
+ 				  "PROXY" P
+  		 WHERE    E.emp_no = P.emp_no
+	]]>		
+</select>	-->
+	
+	
+	
+	
+	
+	
+</sqlMap>

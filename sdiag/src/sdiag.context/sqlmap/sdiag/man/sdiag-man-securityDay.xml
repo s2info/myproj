@@ -1,0 +1,938 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="securityDay">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="sdChecklistVO" type="sdiag.securityDay.service.SdCheckListVO"/>
+	<typeAlias alias="sdChecklistGroupVO" type="sdiag.securityDay.service.SdCheckListGroupVO"/>
+	<typeAlias alias="sdQuestionInfoVO" type="sdiag.securityDay.service.SdQuestionInfoVO"/>
+	<typeAlias alias="sdQuestionMcVO" type="sdiag.securityDay.service.SdQuestionMcVO"/>
+	<typeAlias alias="sdSearchVO" type="sdiag.securityDay.service.SdSearchVO"/>
+	<typeAlias alias="sdTargetInfoVO" type="sdiag.securityDay.service.SdTargetInfoVO"/>
+	<typeAlias alias="sdResultInfoVO" type="sdiag.securityDay.service.SdResultInfoVO"/>
+	 
+	
+	
+	<sql id="securityDay.getSdCheckListWhere">
+		<isNotEmpty property="sUseYn">
+			AND use_yn = #sUseYn#
+		</isNotEmpty>
+		<isNotEmpty property="searchKeyword">
+			AND checklist_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isNotEmpty>
+	</sql>
+	
+
+	<!-- 점검표 LIST -->
+	<select id="securityDay.getSdCheckList" resultClass="sdChecklistVO" parameterClass="sdSearchVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			sd_check_no AS sdCheckNo, 
+ 			checklist_nm AS checklistNm, 
+ 			case       
+			    WHEN use_yn = 'Y' THEN '사용'       
+			    else '미사용'      
+			end as useYn, 
+       		rgdt_emp_no AS rgdtEmpNo,
+       		(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm, 
+       		TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate , 
+       		TO_CHAR(updt_date, 'YYYY-mm-dd') AS updtDate
+  		FROM sd_checklist_info
+  		WHERE 1=1
+ 	]]>
+ 	<include refid="securityDay.getSdCheckListWhere" />
+ 	<!-- ORDER BY updt_date; -->
+ 	ORDER BY updt_date desc
+ 	LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+ 	
+ 	</select>
+ 	
+ 	<!-- 점검표 LIST 총 갯수 -->
+	<select id="securityDay.getSdCheckListTotalCount" resultClass="int" parameterClass="sdSearchVO">
+ 	<![CDATA[
+ 		Select count(sd_check_no) from sd_checklist_info
+ 		WHERE 1=1
+ 	]]>
+ 	<include refid="securityDay.getSdCheckListWhere" />
+ 	</select>
+ 	
+ 	<!-- 점검표 seq 정보 -->
+ 	<select id="securityDay.getSdCheckNo" resultClass="int">
+ 	<![CDATA[
+ 		SELECT coalesce(MAX(sd_check_no), 0) + 1 nseq FROM "sd_checklist_info";
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 문항 번호 정보 -->
+ 	<select id="securityDay.getQuestionNum" resultClass="int" parameterClass="int">
+ 	<![CDATA[
+ 		SELECT coalesce(MAX(question_num), 0) + 1 nseq 
+ 		FROM "sd_question_info"
+ 			
+ 	]]>
+ 		WHERE sd_check_no = #sdCheckNo# ;
+ 	</select>
+ 	
+ 	<!-- 문항 정보 저장 -->
+ 	<insert id="securityDay.setSdQuestionInfoInsert"  parameterClass="sdQuestionInfoVO">
+	 	INSERT INTO sd_question_info(
+	            sd_check_no, 
+	            question_num,
+	            question_nm, 
+	            answer_type, 
+	            explain, 
+	            question, 
+	            answer, 
+	            file_yn,
+	            file_text,
+	            rgdt_emp_no, 
+	            rgdt_date, 
+	            updt_date,
+	            ordr)
+	    VALUES (#sdCheckNo#,
+	    		#questionNum#, 
+	    		#questionNm#, 
+	    		#answerType#, 
+	    		#explain#, 
+	    		#question#, 
+	            #answer#,
+	            #fileYn#,
+	            #fileText#, 
+	            #rgdtEmpNo#, 
+	            NOW(), 
+	            NOW(),
+	            #ordr#);
+	 	
+ 	</insert>
+ 	
+ 	<!-- 점검표 정보  -->
+ 	<insert id="securityDay.setSdCheckListInfoInsert" parameterClass="sdChecklistVO">
+ 		INSERT INTO sd_checklist_info(
+            sd_check_no, 
+            checklist_nm, 
+            use_yn, 
+            rgdt_emp_no, 
+            rgdt_date, 
+            updt_date)
+    	VALUES (#sdCheckNo#, 
+    			#checklistNm#,
+    			#useYn#, 
+    			#rgdtEmpNo#, 
+    			NOW(), 
+    			NOW());
+ 	</insert>
+ 	
+ 	
+ 	
+ 	
+ 	<!-- 점검표 상세정보 -->
+	<select id="securityDay.getSdCheckListInfo" resultClass="sdChecklistVO" parameterClass="sdChecklistVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			sd_check_no AS sdCheckNo, 
+ 			checklist_nm AS checklistNm, 
+ 			use_yn AS useYn, 
+       		rgdt_emp_no AS rgdtEmpNo,
+       		(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm, 
+       		TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate , 
+       		TO_CHAR(updt_date, 'YYYY-mm-dd') AS updtDate
+  		FROM sd_checklist_info
+ 	]]>
+ 		WHERE sd_check_no = #sdCheckNo#
+ 	</select>
+ 	
+ 	<!-- 문항정보 LIST -->
+	<select id="securityDay.getQustionList" resultClass="sdQuestionInfoVO" parameterClass="sdChecklistVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			sd_check_no AS sdCheckNo, 
+ 			question_num AS questionNum,
+ 			question_nm AS questionNm, 
+ 			answer_type AS answerType, 
+ 			explain AS explain,
+ 			coalesce(question, '') AS question, 
+ 			answer AS answer, 
+ 			rgdt_emp_no AS rgdtEmpNo, 
+ 			(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm,
+ 			coalesce(file_yn, 'N') AS fileYn,
+ 			coalesce(file_text, '') AS fileText, 
+ 			TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate , 
+       		TO_CHAR(updt_date, 'YYYY-mm-dd') AS updtDate,
+       		ordr AS ordr 
+ 		FROM sd_question_info
+ 	]]>
+ 		WHERE sd_check_no = #sdCheckNo#
+ 		order by ordr asc
+ 	</select>
+ 	
+ 	
+ 	<!-- 문항 상세정보 -->
+	<select id="securityDay.getQustionInfo" resultClass="sdQuestionInfoVO" parameterClass="sdQuestionInfoVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			sd_check_no AS sdCheckNo, 
+ 			question_num AS questionNum,
+ 			coalesce(question_nm, '') AS questionNm, 
+ 			answer_type AS answerType, 
+ 			coalesce(explain, '') AS explain,
+ 			coalesce(question, '') AS question, 
+ 			coalesce(answer, '')  AS answer, 
+ 			rgdt_emp_no AS rgdtEmpNo, 
+ 			(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm, 
+ 			coalesce(file_yn, 'N') AS fileYn,
+ 			coalesce(file_text, '') AS fileText, 
+ 			TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate , 
+       		TO_CHAR(updt_date, 'YYYY-mm-dd') AS updtDate,
+       		ordr
+ 		FROM sd_question_info
+ 	]]>
+ 		WHERE sd_check_no = #sdCheckNo#
+ 		AND question_num = #questionNum#
+ 	</select>
+ 	
+ 	<!-- 문항 정보 수정 -->
+ 	<update id="securityDay.setSdQuestionInfoUpdate"  parameterClass="sdQuestionInfoVO">
+		UPDATE sd_question_info
+	   	SET 
+	   		updt_date=NOW()
+	   		, question_nm=#questionNm#
+	   		, question=#question#
+	   		, answer = #answer#
+	   		, ordr=#ordr#
+	   		
+	   		<isNotEmpty property="answerType">
+	   		, answer_type=#answerType#  
+	   		</isNotEmpty>
+	   		
+	   		<isNotEmpty property="fileYn">
+	   		, file_yn=#fileYn#  
+	   		</isNotEmpty>
+	   		
+	   		<isNotEmpty property="fileText">
+	   		, file_text=#fileText#  
+	   		</isNotEmpty>
+	   		
+	   		<isNotEmpty property="explain">
+	   		, explain=#explain#
+	   		</isNotEmpty>
+	 	WHERE sd_check_no = #sdCheckNo#
+ 		AND question_num = #questionNum#
+	 	
+ 	</update>
+ 	
+ 	<!-- 문항 정보 삭제 -->
+ 	<delete id="securityDay.sdQuestionInfoDelete"  parameterClass="sdQuestionInfoVO">
+		DELETE FROM sd_question_info
+	 	WHERE sd_check_no = #sdCheckNo#
+	 	<isNotEqual prepend="AND" property="questionNum" compareValue="0">
+ 			question_num = #questionNum#
+ 		</isNotEqual>
+ 	</delete>
+ 	
+ 	<!-- 점검표 정보 수정 -->
+ 	<update id="securityDay.setSdCheckListInfoUpdate"  parameterClass="sdChecklistVO">
+		UPDATE sd_checklist_info
+	   	SET 
+	   		checklist_nm = #checklistNm#, 
+ 			use_yn = #useYn#,
+ 			updt_date = NOW() 
+	 	WHERE sd_check_no = #sdCheckNo#
+	 	
+ 	</update>
+ 	
+ 	
+ 	
+ 	<!-- 문항 정보 삭제 -->
+ 	<delete id="securityDay.sdCheckListInfoDelete"  parameterClass="sdChecklistVO">
+		DELETE FROM sd_checklist_info
+	 	WHERE sd_check_no = #sdCheckNo#
+ 	</delete>
+ 	
+ 	<!-- 문항 보기 정보 저장 -->
+ 	<insert id="securityDay.setQuestionMcInsert"  parameterClass="sdQuestionMcVO">
+	 	INSERT INTO sd_question_mc(
+	            sd_check_no, 
+	            question_num, 
+	            ex_num, 
+	            ex_text, 
+	            rgdt_emp_no, 
+	            rgdt_date, 
+	            updt_date)
+	    VALUES (#sdCheckNo#, 
+	    		#questionNum#, 
+	    		#exNum#, 
+	    		#exText#, 
+	            #rgdtEmpNo#, 
+	            NOW(), 
+	            NOW());
+	 	
+ 	</insert>
+ 	
+ 	<!-- 문항 보기 정보 수정 -->
+ 	<insert id="securityDay.setQuestionMcUpdate"  parameterClass="sdQuestionMcVO">
+	 	UPDATE sd_question_mc
+	   	SET 
+	   		ex_text = #u_exText#, 
+ 			updt_date = NOW() 
+	 	WHERE sd_check_no = #sdCheckNo#
+	 	AND question_num = #questionNum#
+	 	AND ex_num = #u_exNum#
+	 	
+ 	</insert>
+ 	
+ 	<!-- 문항 보기 정보 삭제 -->
+ 	<delete id="securityDay.questionMcDelete"  parameterClass="sdQuestionMcVO">
+		DELETE FROM sd_question_mc
+	 	WHERE sd_check_no = #sdCheckNo#
+	 	<isNotEqual prepend="AND" property="questionNum" compareValue="0">
+ 			question_num = #questionNum#
+ 		</isNotEqual>
+	 	<isNotEmpty prepend="AND" property="exNum">
+	 		ex_num = #exNum#
+ 		</isNotEmpty>
+ 	</delete>
+ 	
+ 	<!-- 문항 보기 정보 LIST -->
+	<select id="securityDay.getQuestionMcList" resultClass="sdQuestionMcVO" parameterClass="sdQuestionInfoVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			sd_check_no AS sdCheckNo, 
+ 			question_num AS questionNum, 
+ 			ex_num AS exNum, 
+ 			ex_text AS exText
+ 		FROM sd_question_mc
+ 	]]>
+ 		WHERE sd_check_no = #sdCheckNo#
+ 		AND question_num = #questionNum#
+ 		order by ex_num asc
+ 	</select>
+ 	
+ 	<!-- 정책 대상자  정보 저장 -->
+ 	<insert id="securityDay.setSdTargetInfoInsert"  parameterClass="sdTargetInfoVO">
+	 	INSERT INTO sd_target_info(
+	 			cl_group_no,
+	            sd_check_no, 
+	            gubun, 
+	            target_type, 
+	            target_code, 
+	            target_nm, 
+	            rgdt_date)
+	    VALUES (#clGroupNo#,
+	    		#sdCheckNo#, 
+	    		#gubun#, 
+	    		#targetType#, 
+	    		#targetCode#, 
+	            #targetNm#, 
+	            NOW());
+	 	
+ 	</insert>
+ 	
+ 	<!-- 점검표 대상자 존재 여부 체크 -->
+	<select id="securityDay.sdTargetInfoCheck" resultClass="int" parameterClass="sdTargetInfoVO">
+ 	<![CDATA[
+ 		Select count(cl_group_no) from sd_target_info
+ 		WHERE cl_group_no = #clGroupNo#
+ 		AND sd_check_no=#sdCheckNo#
+ 		AND gubun = #gubun#
+ 		AND target_code = #targetCode#
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 점검표 대상자 List -->
+	<select id="securityDay.getSdTargetInfoList" resultClass="sdTargetInfoVO" parameterClass="sdCheckListGroupVO">
+ 	<![CDATA[
+ 		SELECT
+ 			cl_group_no AS clGroupNo,  
+ 			sd_check_no AS sdCheckNo, 
+ 			gubun AS gubun, 
+ 			case       
+			    WHEN target_type = '1' THEN '개인' 
+			    WHEN target_type = '2' THEN '조직'      
+			    WHEN target_type = '3' THEN '그룹'
+	 		end AS targetType, 
+ 			target_code AS targetCode, 
+ 			target_nm AS targetNm
+  		FROM sd_target_info
+ 		WHERE cl_group_no=#clGroupNo#
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 점검 대상자 삭제 -->
+ 	<delete id="securityDay.sdTargetInfoDelete"  parameterClass="sdTargetInfoVO">
+		DELETE FROM sd_target_info
+	 	WHERE 1=1 
+	 	<isNotEqual prepend="AND" property="clGroupNo" compareValue="0">
+	 		cl_group_no = #clGroupNo#
+	 	</isNotEqual>
+	 	<isNotEqual prepend="AND" property="sdCheckNo" compareValue="0">
+ 			sd_check_no = #sdCheckNo#
+ 		</isNotEqual>
+	 	<isNotEmpty prepend="AND" property="gubun" >
+ 			gubun = #gubun#
+ 		</isNotEmpty>
+	 	<isNotEmpty prepend="AND" property="targetCode" >
+	 		target_code = #targetCode#
+ 		</isNotEmpty>
+ 	</delete>
+ 	
+ 	<!-- 점검표 그룹 LIST -->
+	<select id="securityDay.getSdCheckListGroupList" resultClass="sdChecklistGroupVO" parameterClass="sdSearchVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			cl_group_no AS clGroupNo, 
+ 			cl_group_nm AS clGroupNm, 
+ 			to_char(to_date(check_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkStartDay, 
+	        to_char(to_date(check_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkEndDay,
+	        to_char(to_date(idx_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxStartDay, 
+	        to_char(to_date(idx_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxEndDay, 
+       		rgdt_emp_no AS rgdtEmpNo,
+       		TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate
+  		FROM sd_checklist_group
+  		WHERE 1=1
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+			AND cl_group_nm LIKE CONCAT('%',#searchKeyword#,'%')
+	</isNotEmpty>
+ 	<!-- ORDER BY updt_date; -->
+ 	ORDER BY updt_date desc
+ 	LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+ 	</select>
+ 	
+ 	<!-- 점검표 그룹 LIST 총 갯수 -->
+	<select id="securityDay.getSdCheckListGroupTotalCount" resultClass="int" parameterClass="sdSearchVO">
+ 	<![CDATA[
+ 		Select count(cl_group_no) from sd_checklist_group
+ 		WHERE 1=1
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+			AND cl_group_nm LIKE CONCAT('%',#searchKeyword#,'%')
+	</isNotEmpty>
+ 	</select>
+ 	
+ 	<!-- 점검표 그룹 seq 정보 -->
+ 	<select id="securityDay.getClGroupNo" resultClass="int">
+ 	<![CDATA[
+ 		SELECT coalesce(MAX(cl_group_no), 0) + 1 nseq FROM "sd_checklist_group";
+ 	]]>
+ 	</select>	
+ 	
+ 	<!-- 점검표 그룹 정보 저장  -->
+ 	<insert id="securityDay.setSdCheckListGroupInfoInsert" parameterClass="sdChecklistGroupVO">
+ 		INSERT INTO sd_checklist_group(
+            cl_group_no, 
+            cl_group_nm, 
+            check_start_day, 
+            check_end_day, 
+            idx_start_day, 
+            idx_end_day, 
+            rgdt_emp_no, 
+            rgdt_date, 
+            updt_date,
+            info_text)
+    	VALUES (#clGroupNo#, 
+    			#clGroupNm#,
+    			#checkStartDay#, 
+    			#checkEndDay#, 
+    			#idxStartDay#, 
+    			#idxEndDay#,
+    			#rgdtEmpNo#, 
+    			NOW(), 
+    			NOW(),
+    			#infoText#);
+ 	</insert>
+ 	
+ 	<!-- 점검표 그룹 상세정보 -->
+	<select id="securityDay.getSdCheckListGroupInfo" resultClass="sdChecklistGroupVO" parameterClass="sdChecklistGroupVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			cl_group_no AS clGroupNo, 
+ 			cl_group_nm AS clGroupNm, 
+ 			to_char(to_date(check_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkStartDay, 
+	        to_char(to_date(check_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkEndDay,
+	        to_char(to_date(idx_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxStartDay, 
+	        to_char(to_date(idx_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxEndDay,
+       		rgdt_emp_no AS rgdtEmpNo,
+       		(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm, 
+       		TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate , 
+       		TO_CHAR(updt_date, 'YYYY-mm-dd') AS updtDate ,
+       		coalesce(info_text,'') infoText
+  		FROM sd_checklist_group
+ 	]]>
+ 		WHERE cl_group_no = #clGroupNo#
+ 	</select>
+ 	
+ 	<!-- 점검표 그룹 정보 수정 -->
+ 	<update id="securityDay.setSdCheckListGroupInfoUpdate"  parameterClass="sdChecklistGroupVO">
+		UPDATE sd_checklist_group
+	   	SET 
+	   		cl_group_nm = #clGroupNm#, 
+	   		check_start_day = #checkStartDay#, 
+ 			check_end_day = #checkEndDay#, 
+ 			idx_start_day = #idxStartDay#, 
+ 			idx_end_day = #idxEndDay#, 
+ 			updt_date = NOW(),
+ 			info_text=#infoText#
+	 	WHERE cl_group_no = #clGroupNo#
+	 	
+ 	</update>
+ 	
+ 	<!-- 그룹 삭제 -->
+ 	<delete id="securityDay.sdCheckListGroupInfoDelete"  parameterClass="sdChecklistGroupVO">
+		DELETE FROM sd_checklist_group
+	 	WHERE cl_group_no = #clGroupNo#
+ 	</delete>
+ 	
+ 	<!-- 그룹 대상 점검표 리스트 -->
+	<select id="securityDay.getSdClGroupMappingList" resultClass="sdTargetInfoVO" parameterClass="sdChecklistGroupVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			a.cl_group_no AS clGroupNo, 
+ 			a.sd_check_no AS sdCheckNo,
+ 			b.checklist_nm as checklistNm
+  		FROM sd_checklist_group_mapping a, sd_checkList_info b
+ 	]]>
+ 		WHERE cl_group_no = #clGroupNo#
+ 		and a.sd_check_no = b.sd_check_no
+ 	</select>
+ 	
+ 	
+ 	<!-- 그룹 대상 점검표 정보 저장  -->
+ 	<insert id="securityDay.setClGroupInfoInsert" parameterClass="sdTargetInfoVO">
+ 		INSERT INTO sd_checklist_group_mapping(
+            cl_group_no, 
+            sd_check_no,
+            rgdt_date )
+    	VALUES (#clGroupNo#, 
+    			#sdCheckNo#, 
+    			NOW());
+ 	</insert>
+ 	
+ 	<!-- 그룹 대상 점검표 대상자 삭제 -->
+ 	<delete id="securityDay.sdClGroupMappingInfoDelete"  parameterClass="sdTargetInfoVO">
+		DELETE FROM sd_checklist_group_mapping
+	 	WHERE 1=1
+	 	<isNotEqual prepend="AND" property="clGroupNo" compareValue="0">
+		 	cl_group_no = #clGroupNo#
+		</isNotEqual>
+	 	<isNotEqual prepend="AND" property="sdCheckNo" compareValue="0">
+ 			sd_check_no = #sdCheckNo#
+ 		</isNotEqual>
+ 	</delete>
+ 	
+ 	<!-- 점검표 LIST -->
+	<select id="securityDay.getClList" resultClass="sdChecklistVO" parameterClass="sdSearchVO">
+ 	<![CDATA[
+ 		SELECT 
+ 			sd_check_no AS sdCheckNo, 
+ 			checklist_nm AS checklistNm, 
+ 			case       
+			    WHEN use_yn = 'Y' THEN '사용'       
+			    else '미사용'      
+			end as useYn, 
+       		rgdt_emp_no AS rgdtEmpNo,
+       		(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm, 
+       		TO_CHAR(rgdt_date, 'YYYY-mm-dd') AS rgdtDate , 
+       		TO_CHAR(updt_date, 'YYYY-mm-dd') AS updtDate
+  		FROM sd_checklist_info
+  		WHERE use_yn ='Y'
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 그룹 대상 점검표 존재 여부 체크 -->
+	<select id="securityDay.sdClGroupMappinfInfoCheck" resultClass="int" parameterClass="sdTargetInfoVO">
+ 	<![CDATA[
+ 		Select count(cl_group_no) from sd_checklist_group_mapping
+ 		WHERE cl_group_no = #clGroupNo#
+ 		AND sd_check_no=#sdCheckNo#
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 점검 대상 여부 확인 -->
+	<select id="securityDay.getSdYn" resultClass="sdResultInfoVO" parameterClass="String">
+ 	<![CDATA[
+        Select
+        	count(t1.emp_no) rowNum,
+        	(select count(emp_no) from sd_target_master where emp_no =  #empNo#  and cl_group_no =(select cl_group_no from sd_checklist_group where to_char(NOW(), 'YYYYmmdd') between check_start_day and check_end_day)) as questionNum
+   		from
+        	sd_result_info t1
+    	WHERE
+      		t1.emp_no =  #empNo#   
+       		AND  t1.cl_group_no =(select cl_group_no from sd_checklist_group where to_char(NOW(), 'YYYYmmdd') between check_start_day and check_end_day and cl_group_no = t1.cl_group_no )
+        	AND (select count(cl_group_no) from sd_target_master where emp_no = t1.emp_no and cl_group_no = t1.cl_group_no) > 0
+        	AND t1.check_yn ='N'
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 점검 문항 정보 조회 -->
+	<select id="securityDay.getSdInfo" resultClass="sdResultInfoVO" parameterClass="sdResultInfoVO">
+	
+		SELECT ST.* FROM (
+            SELECT           
+		        t1.sd_check_no AS sdCheckNo ,
+		        t1.cl_group_no AS clGroupNo,
+		        t4.cl_group_nm AS clGroupNm,
+		        t1.emp_no AS empNo,
+		        t2.question_num AS questionNum,
+		        t2.answer_type AS answerType,
+		        coalesce(t2.question,
+		        '') AS question,
+		        t2.answer AS answer,
+		        t2.explain AS explain,
+		        coalesce(t2.file_yn,
+		        'N') AS fileYn,
+		        coalesce(t2.file_text,
+		        '') AS fileText,
+		        to_char(to_date(t4.check_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkStartDay, 
+		        to_char(to_date(t4.check_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkEndDay ,
+		        to_char(to_date(t4.idx_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxStartDay,
+		        t2.ordr AS ordr,
+		        ROW_NUMBER() OVER(ORDER BY t1.sd_check_no,to_number(t2.ordr,'9999999'), t2.question_num ASC)     AS rowNum,
+		        t4.info_text infoText
+		    FROM
+		        sd_target_master t1 ,
+		        sd_question_info t2,
+		        sd_checklist_info t3,
+		        sd_checklist_group t4	        
+		    WHERE
+				to_char(NOW(), 'YYYYmmdd') between t4.check_start_day and t4.check_end_day 
+			AND t4.cl_group_no = t1.cl_group_no
+            AND t1.sd_check_no = t2.sd_check_no   
+			AND t2.sd_check_no = t3.sd_check_no
+			AND t1.emp_no =  #empNo#
+			AND t2.question_num is not null
+			ORDER BY rowNum ASC) AS ST
+		WHERE ST.rowNum = #rowNum#
+ 	</select>
+ 	
+ 	<!-- 점검 문항 정보 조회 -->
+	<select id="securityDay.getSdRDetailInfo" resultClass="sdResultInfoVO" parameterClass="sdResultInfoVO">
+	
+		select answer as answer,
+		       'Y' as resultYn
+		from  sd_result_detail_info
+		where emp_no = #empNo#
+		and cl_group_no = #clGroupNo#
+		and sd_check_no = #sdCheckNo#
+		and question_num = #questionNum#
+ 	</select>
+ 	
+ 	
+ 	<!-- 점검 문항 정보 조회 -->
+	<select id="securityDay.getSdInfoTotalCnt" resultClass="int" parameterClass="sdResultInfoVO">
+	
+		SELECT count(1) FROM (
+            SELECT           
+		        t1.sd_check_no AS sdCheckNo ,
+		        t1.cl_group_no AS clGroupNo,
+		        t4.cl_group_nm AS clGroupNm,
+		        t1.emp_no AS empNo,
+		        t2.question_num AS questionNum,
+		        t2.answer_type AS answerType,
+		        coalesce(t2.question,
+		        '') AS question,
+		        t2.answer AS answer,
+		        t2.explain AS explain,
+		        coalesce(t2.file_yn,
+		        'N') AS fileYn,
+		        coalesce(t2.file_text,
+		        '') AS fileText,
+		        to_char(to_date(t4.check_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkStartDay, 
+		        to_char(to_date(t4.check_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkEndDay ,
+		        to_char(to_date(t4.idx_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxStartDay,
+		        t2.ordr AS ordr,
+		        ROW_NUMBER() OVER(ORDER BY t1.sd_check_no,to_number(t2.ordr,'9999999'), t2.question_num ASC)     AS rowNum
+		    FROM
+		        sd_target_master t1 ,
+		        sd_question_info t2,
+		        sd_checklist_info t3,
+		        sd_checklist_group t4	        
+		    WHERE
+				to_char(NOW(), 'YYYYmmdd') between t4.check_start_day and t4.check_end_day 
+			AND t4.cl_group_no = t1.cl_group_no
+            AND t1.sd_check_no = t2.sd_check_no   
+			AND t2.sd_check_no = t3.sd_check_no
+			AND t1.emp_no =  #empNo#
+			AND t2.question_num is not null
+			ORDER BY rowNum ASC) AS ST
+ 	
+ 	</select>
+ 	
+ 	<!-- 문항 점검 결과 정보 저장  -->
+ 	<insert id="securityDay.setSdResultInfoSave" parameterClass="sdResultInfoVO">
+ 		INSERT INTO sd_result_detail_info(
+            emp_no, 
+            cl_group_no,
+            sd_check_no,
+            question_num,
+            answer,
+            file_nm,
+            check_date )
+    	VALUES (#empNo#, 
+    			#clGroupNo#,
+    			#sdCheckNo#,
+    			#questionNum#,
+    			#answer#,
+    			#fileNm#, 
+    			NOW());
+ 	</insert>
+ 	
+ 	<!-- 문항 점검 결과 정보 저장  -->
+ 	<update id="securityDay.setSdResultInfoUpdate" parameterClass="sdResultInfoVO">
+ 		update sd_result_detail_info set
+            answer = #answer#,
+            file_nm = #fileNm#,
+            check_date =NOW()
+    	where emp_no = #empNo#
+		and cl_group_no = #clGroupNo#
+		and sd_check_no = #sdCheckNo#
+		and question_num = #questionNum#
+ 	</update>
+ 	
+ 	<!-- 문항 점검 결과 정보 저장  -->
+ 	<insert id="securityDay.setSdResultSave" parameterClass="sdResultInfoVO">
+ 		UPDATE sd_result_info SET
+		check_yn = 'Y',
+		check_date = NOW(),
+		sldm_org_logdate = NOW()
+		where cl_group_no = #clGroupNo#
+		AND emp_no = #empNo#
+
+ 	</insert>
+ 	
+ 		<!-- 점검 문항 정보 조회 -->
+	<select id="securityDay.getSdPreViewTotalCnt" resultClass="int" parameterClass="sdSearchVO">
+ 	SELECT count(1) FROM (
+            SELECT           
+		        t1.sd_check_no AS sdCheckNo ,
+		        t4.cl_group_no AS clGroupNo,
+		        t4.cl_group_nm AS clGroupNm,
+		        t2.question_num AS questionNum,
+		        t2.answer_type AS answerType,
+		        coalesce(t2.question,
+		        '') AS question,
+		        t2.answer AS answer,
+		        t2.explain AS explain,
+		        coalesce(t2.file_yn,
+		        'N') AS fileYn,
+		        coalesce(t2.file_text,
+		        '') AS fileText,
+		        to_char(to_date(t4.check_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkStartDay, 
+		        to_char(to_date(t4.check_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkEndDay ,
+		        to_char(to_date(t4.idx_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxStartDay,
+		        t2.ordr AS ordr,
+		        ROW_NUMBER() OVER(ORDER BY t1.sd_check_no,to_number(t2.ordr,'9999999'), t2.question_num ASC)     AS rowNum
+		    FROM
+			sd_checklist_group_mapping t1,
+		        sd_question_info t2,
+		        sd_checklist_info t3,
+		        sd_checklist_group t4	        
+		    WHERE
+			t4.cl_group_no = #pageIndex#
+			AND t1.sd_check_no = t3.sd_check_no
+			AND t1.cl_group_no = t4.cl_group_no
+			AND t2.sd_check_no = t3.sd_check_no
+			AND t2.question_num is not null
+			ORDER BY rowNum ASC) AS ST
+ 	</select>
+ 	
+ 	
+ 	<!-- 점검 문항 정보 조회 -->
+	<select id="securityDay.getSdPreView" resultClass="sdResultInfoVO" parameterClass="sdSearchVO">
+ 	<![CDATA[
+ 		SELECT ST.* FROM (
+            SELECT           
+		        t1.sd_check_no AS sdCheckNo ,
+		        t4.cl_group_no AS clGroupNo,
+		        t4.cl_group_nm AS clGroupNm,
+		        t2.question_num AS questionNum,
+		        t2.answer_type AS answerType,
+		        coalesce(t2.question,
+		        '') AS question,
+		        t2.answer AS answer,
+		        t2.explain AS explain,
+		        coalesce(t2.file_yn,
+		        'N') AS fileYn,
+		        coalesce(t2.file_text,
+		        '') AS fileText,
+		        to_char(to_date(t4.check_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkStartDay, 
+		        to_char(to_date(t4.check_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkEndDay ,
+		        to_char(to_date(t4.idx_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxStartDay,
+		        t2.ordr AS ordr,
+		        ROW_NUMBER() OVER(ORDER BY t1.sd_check_no,to_number(t2.ordr,'9999999'), t2.question_num ASC)     AS rowNum
+		    FROM
+			sd_checklist_group_mapping t1,
+		        sd_question_info t2,
+		        sd_checklist_info t3,
+		        sd_checklist_group t4	        
+		    WHERE
+			t4.cl_group_no = #pageIndex#
+			AND t1.sd_check_no = t3.sd_check_no
+			AND t1.cl_group_no = t4.cl_group_no
+			AND t2.sd_check_no = t3.sd_check_no
+			AND t2.question_num is not null
+			ORDER BY rowNum ASC) AS ST
+			WHERE ST.rowNum =  #rowNum#
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 그룹 대상 점검표 대상자 삭제 -->
+ 	<delete id="securityDay.sdTargetDatailInfoDelete"  parameterClass="sdTargetInfoVO">
+		DELETE FROM sd_target_master
+	 	WHERE 1=1 
+	 	<isNotEqual prepend="AND" property="clGroupNo" compareValue="0">
+	 		cl_group_no = #clGroupNo#
+	 	</isNotEqual>
+	 	<isNotEqual prepend="AND" property="sdCheckNo" compareValue="0">
+ 			sd_check_no = #sdCheckNo#
+ 		</isNotEqual>
+ 	</delete>
+ 	
+ 	
+ 	<!-- 그룹 대상 점검표 대상자 삭제 -->
+ 	<delete id="securityDay.sdResultInfoDelete"  parameterClass="sdTargetInfoVO">
+		DELETE FROM sd_result_info
+	 	WHERE cl_group_no = #clGroupNo#
+ 	</delete>
+ 	
+ 	<!-- 그룹 대상 점검표 대상자 삭제 -->
+ 	<delete id="securityDay.sdResultDatailInfoDelete"  parameterClass="sdTargetInfoVO">
+		DELETE FROM sd_result_detail_info
+	 	WHERE 1=1
+	 	<isNotEqual prepend="AND" property="clGroupNo" compareValue="0">
+	 		cl_group_no = #clGroupNo#
+	 	</isNotEqual>
+	 	<isNotEqual prepend="AND" property="sdCheckNo" compareValue="0">
+ 			sd_check_no = #sdCheckNo#
+ 		</isNotEqual>
+ 	</delete>
+ 	
+ 	<!-- 점검 문항 정보 조회 -->
+	<select id="securityDay.getSdResultInfo" resultClass="egovMap" parameterClass="sdSearchVO">
+	 	select st.emp_no, 
+	 		ou.emp_nm, 
+	 		ou.posn_nm, 
+	 		st.sd_check_no,
+	 		sc.checklist_nm, 
+	 		srd.question_num, 
+	 		srd.answer, 
+	 		srd.file_nm, 
+	 		case       
+				WHEN sr.check_yn  = 'Y' THEN '점검 완료'       
+				else '미 점검'      
+			end as check_yn,
+			to_char(sr.check_date, 'YYYY-mm-dd') check_date			
+		from sd_target_master st
+		left join sd_result_detail_info srd
+		on srd.emp_no = st.emp_no
+		and srd.cl_group_no = st.cl_group_no
+		and srd.sd_check_no = st.sd_check_no
+		left join sd_result_info sr
+		on st.emp_no = sr.emp_no
+		and sr.cl_group_no = st.cl_group_no 
+		left join sd_checklist_info sc
+		on st.sd_check_no = sc.sd_check_no
+		left join nx_org_user ou
+		on st.emp_no = ou.emp_no
+		where st.cl_group_no = #s_clGroupNo#
+		
+		<isNotEmpty property="sUseYn">
+			AND check_yn = #sUseYn#
+		</isNotEmpty>
+		<isNotEmpty property="searchKeyword">
+			<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				st.emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>		
+			<isEqual prepend="AND" property="searchCondition" compareValue="2">
+				ou.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>
+		</isNotEmpty>
+		
+		order by ou.org_code, ou.level_code, ou.emp_no , srd.question_num asc
+		
+		
+	</select>
+	
+	<!-- 점검 문항 정보 조회 -->
+	<select id="securityDay.getExcelSdResultInfo" resultClass="java.util.LinkedHashMap" parameterClass="sdSearchVO">
+	 	select st.emp_no, 
+	 		ou.emp_nm, 
+	 		ou.posn_nm, 
+	 		sc.sd_check_no, 
+	 		sc.checklist_nm, 
+	 		srd.question_num, 
+	 		srd.answer, 
+	 		srd.file_nm, 
+	 		case       
+				WHEN sr.check_yn  = 'Y' THEN '점검 완료'       
+				else '미 점검'      
+			end as check_yn,
+			to_char(sr.check_date, 'YYYY-mm-dd') check_date			
+		from sd_target_master st
+		left join sd_result_detail_info srd
+		on srd.emp_no = st.emp_no
+		and srd.cl_group_no = st.cl_group_no
+		and srd.sd_check_no = st.sd_check_no
+		left join sd_result_info sr
+		on st.emp_no = sr.emp_no
+		and sr.cl_group_no = st.cl_group_no 
+		left join sd_checklist_info sc
+		on st.sd_check_no = sc.sd_check_no
+		left join nx_org_user ou
+		on st.emp_no = ou.emp_no
+		where st.cl_group_no = #s_clGroupNo#
+		
+		<isNotEmpty property="sUseYn">
+			AND check_yn = #sUseYn#
+		</isNotEmpty>
+		<isNotEmpty property="searchKeyword">
+			<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				st.emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>		
+			<isEqual prepend="AND" property="searchCondition" compareValue="2">
+				ou.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>
+		</isNotEmpty>
+		order by ou.org_code, ou.level_code, ou.emp_no asc
+		
+	</select>
+	
+	<!-- 점검 문항 정보 조회 -->
+	<select id="securityDay.getFileNm" resultClass="String" parameterClass="sdResultInfoVO">
+	 	select 
+	 		file_nm
+		from sd_result_detail_info srd
+		where cl_group_no = #clGroupNo#
+		and sd_check_no =#sdCheckNo#
+		and question_num = #questionNum#
+		and emp_no = #empNo#
+	</select>
+	
+	<!-- 지수화일 중복 체크 -->
+ 	<select id="securityDay.getIdxDayCnt" resultClass="int" parameterClass="sdChecklistGroupVO">
+ 	<![CDATA[
+ 		SELECT count(1) FROM sd_checklist_group 
+		WHERE( ((idx_start_day >= #idxStartDay# AND idx_start_day <=  #idxEndDay#)
+		        OR (idx_end_day >=  #idxStartDay# AND  idx_end_day <= #idxEndDay#)) 
+		OR
+		     ((check_start_day >= #checkStartDay# AND check_start_day <=  #checkEndDay#)
+		     OR (check_end_day >=  #checkStartDay# AND  check_end_day <= #checkEndDay#))
+	    )
+	]]>
+	<isNotEqual prepend="AND" property="clGroupNo" compareValue="0">
+		cl_group_no != #clGroupNo#
+ 	</isNotEqual>
+ 	
+ 	</select>
+ 	
+ 	<!-- 그룹 대상 점검표 대상자 삭제 -->
+ 	<delete id="securityDay.deleteSdResultDatailInfo"  parameterClass="sdResultInfoVO">
+		DELETE FROM sd_result_detail_info
+	 	where emp_no = #empNo#
+		and cl_group_no = #clGroupNo#
+		and sd_check_no = #sdCheckNo#
+		and question_num = #questionNum#
+	 	
+ 	</delete>
+ 	
+</sqlMap>

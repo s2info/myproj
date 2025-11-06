@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="LoginUsr">
+
+	<typeAlias  alias="loginVO" type="sdiag.login.service.UserManageVO"/>
+
+	<!-- 로그인 처리를 위한 resultMap -->
+
+	<resultMap id="login" class="sdiag.login.service.UserManageVO">
+		<result property="emp_no"				column="EMP_NO" 				columnIndex="1"/>	
+		<result property="emp_nm"				column="EMP_NM" 				columnIndex="2"/>	
+		<result property="org_code"				column="ORG_CODE" 				columnIndex="3"/>	
+		<result property="title_code"				column="TITLE_CODE" 				columnIndex="4"/>	
+		<result property="title_nm"				column="TITLE_NM" 				columnIndex="5"/>
+		<result property="user_auth"				column="USER_AUTH" 				columnIndex="6"/>
+	</resultMap>
+	
+	
+	<!-- 
+		<result property="userid"     column="ID"	columnIndex="1"/>
+		<result property="user_auth"			column="USER_AUTH" 			columnIndex="2"/>
+		<result property="email_indc"			column="EMAIL_INDC" 		columnIndex="3"/>
+		<result property="mac"					column="MAC" 				columnIndex="4"/>	
+		<result property="ip"					column="IP" 				columnIndex="5"/>
+		<result property="rgdt_date"			column="RGDT_DATE" 			columnIndex="6"/>
+		<result property="updt_date" 			column="UPDT_DATE" 			columnIndex="7"/>
+		<result property="password"				column="PSWD" 				columnIndex="8"/>	
+	-->
+
+	<!-- 관리자/운영자 로그인 -->
+	<select id="loginDAO.actionLogin.admin" resultMap="login">
+			<![CDATA[
+			SELECT 
+				OU.EMP_NO, OU.EMP_NM, OU.ORG_CODE, OU.TITLE_CODE, OU.TITLE_NM, USER_AUTH
+			FROM user_info UI
+			LEFT JOIN nx_org_user OU ON UI.ID=OU.EMP_NO
+			WHERE 1 = 1
+			AND  OU.STAT IS NOT NULL
+			AND TRIM(ID) = #userid#
+			AND PSWD = #password#
+			]]>
+	</select>
+	
+	<!-- 일반로그인 -->
+	
+	<select id="loginDAO.actionLogin.personal"  resultMap="login">
+			<![CDATA[
+			SELECT 
+				OU.EMP_NO, OU.EMP_NM, OU.ORG_CODE, OU.TITLE_CODE, OU.TITLE_NM, OU.LEVEL_CODE USER_AUTH
+			FROM nx_org_user OU
+			WHERE OU.EMP_NO = #userid#
+			]]>
+	</select>
+	
+</sqlMap>

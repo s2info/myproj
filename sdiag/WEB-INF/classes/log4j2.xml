@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Appenders>
+          <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %5p [%c] %m%n" />
+        </Console>
+      <!-- 
+      	<RollingFile name="Rolling" fileName="D:/logs/sldmlog.log" 
+       		filePattern="D:/logs/sldmlog.log.%d{yyyy-MM-dd}"
+       		append="false">
+       		<PatternLayout pattern="%d %5p [%c] %m%n" />
+       		<Policies>
+       			<TimeBasedTriggeringPolicy interval="1" modulate="true" />
+       		</Policies>
+       	</RollingFile>   
+       	 -->
+    </Appenders>
+   
+    
+    <Loggers>
+        <Logger name="egovframework" level="INFO" additivity="false">
+            <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+        </Logger>
+          <!-- log SQL with timing information, post execution -->
+        <logger name="jdbc.sqltiming" level="INFO" additivity="false">
+            <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+        </logger>
+        <logger name="org.springframework" level="INFO" additivity="false">
+            <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+        </logger>
+        <logger name="org.springframework.security" level="INFO" additivity="false">
+            <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+        </logger>                 
+		
+        <Root level="ERROR">
+            <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+        </Root>
+        
+	    <!-- Additional -->
+	    <logger name="com.ibatis" additivity="false">
+	        <level value="DEBUG" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="com.ibatis.common.jdbc.SimpleDataSourc" additivity="false">
+	        <level value="INFO" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="com.ibatis.sqlmap.engine.cache.CacheModel" additivity="false">
+	        <level value="INFO" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="com.ibatis.sqlmap.engine.impl.SqlMapClientImpl" additivity="false">
+	        <level value="INFO" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="com.ibatis.sqlmap.engine.builder.xml.SqlMapParser" additivity="false">
+	        <level value="INFO" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="com.ibatis.common.util.StopWatch" additivity="false">
+	        <level value="INFO" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="java.sql.Connection" additivity="false">
+	        <level value="DEBUG" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="java.sql.Statement" additivity="false">
+	        <level value="INFO" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="java.sql.PreparedStatement" additivity="false">
+	        <level value="INFO" />
+	        <AppenderRef ref="console" />
+          <!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+	    
+	    <logger name="java.sql.ResultSet" additivity="false">
+	        <level value="INFO" />
+	        <AppenderRef ref="console" />
+          	<!-- <AppenderRef ref="Rolling" /> -->
+	    </logger>
+            
+    </Loggers>
+</Configuration>

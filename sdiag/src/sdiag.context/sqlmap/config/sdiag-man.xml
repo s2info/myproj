@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMapConfig PUBLIC "-//iBATIS.com//DTD SQL Map Config 2.0//EN"
+    "http://www.ibatis.com/dtd/sql-map-config-2.dtd">
+
+<sqlMapConfig>						
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-site.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-pol.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-polbuseo.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-ansis.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-user.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-notice.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-sanct.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-statistic.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-exception.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-securityDay.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-groupInfo.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-mail.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-reqexip.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-userSearch.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-reassign.xml"/>
+	<sqlMap resource="sdiag.context/sqlmap/sdiag/man/sdiag-man-orgstat.xml"/>
+</sqlMapConfig>

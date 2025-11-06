@@ -1,0 +1,2049 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="pol.service">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="orgGroupVO" type="sdiag.pol.service.OrgGroupVO"/>
+	<typeAlias alias="polSearchVO" type="sdiag.pol.service.PolicySearchVO"/>
+	<typeAlias alias="userIdxInfoVO" type="sdiag.pol.service.UserIdxinfoVO" />
+	<typeAlias alias="secPolInfoVO" type="sdiag.man.service.SecPolInfoVO" />
+	<typeAlias alias="polConVO" type="sdiag.man.service.PolConVO" />
+	<typeAlias alias="sanctSearchResultListVO" type="sdiag.sanct.service.SanctSearchResultListVO" />
+	<typeAlias alias="polTargetInfoVO" type="sdiag.man.service.PolTargetInfoVO" />
+	
+	
+	<!-- Include SQL -->
+	<sql id="pol.polDetailSearchQuery">
+ 		<isNotEqual prepend="AND" property="majCode" compareValue="">
+		<![CDATA[
+			 I.pol_idx_id IN (SELECT sec_pol_id FROM "pol_idx" WHERE diag_majr_code=#majCode#
+		]]>	
+		<isNotEqual prepend="AND" property="minCode" compareValue="">
+		<![CDATA[
+		 	diag_minr_code=#minCode#
+		]]>			
+		</isNotEqual>	
+		<isNotEqual prepend="AND" property="polCode" compareValue="">
+		<![CDATA[
+		 	sec_pol_id=#polCode#
+		]]>			
+		</isNotEqual>
+		<![CDATA[
+		)
+		]]>
+	</isNotEqual>
+ 	</sql>
+ 	
+ 	<sql id="pol.OrgResultQuery">
+ 	<![CDATA[
+ 		LEFT JOIN "nx_user_idx_info" I ON H.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+ 	]]>
+ 	<include refid="pol.polDetailSearchQuery" />
+ 	<![CDATA[
+		WHERE G.upper_org_code=#org_upper#
+	]]>
+	
+ 	</sql>
+ 	
+	<!-- Include SQL END  -->
+	
+	<select id="pol.service.getOrgGroupList" resultClass="orgGroupVO">
+ 	<![CDATA[
+ 		SELECT 
+				org_code , 
+				org_cap_no , 
+				upper_org_code , 
+				org_nm ,
+				org_level , 
+				org_order , 
+				use_indc , 
+				updt_indc , 
+				to_char(rgdt_date, 'YYYYMMDD') rgdt_date , 
+				to_char(updt_date, 'YYYYMMDD') updt_date
+		FROM "nx_org_group" WHERE use_indc='1';
+ 	]]>
+ 	</select>
+		
+	<select id="pol.service.getOrgGroupSelectList" parameterClass="polSearchVO" resultClass="orgGroupVO">
+ 	<![CDATA[
+ 		SELECT 
+				org_code , 
+				org_cap_no , 
+				upper_org_code , 
+				org_nm ,
+				org_level , 
+				org_order , 
+				use_indc , 
+				updt_indc , 
+				to_char(rgdt_date, 'YYYYMMDD') rgdt_date , 
+				to_char(updt_date, 'YYYYMMDD') updt_date
+		FROM "nx_org_group"
+		WHERE upper_org_code=#org_upper#
+		ORDER BY org_order;
+ 	]]>
+ 	</select>	
+ 	
+ 	<select id="pol.service.getUserInfoLastDate" parameterClass="polSearchVO" resultClass="java.lang.String">
+ 	<isEqual property="buseoType" compareValue="Y">
+	<![CDATA[
+	 		WITH LASTDATE(lastdate)AS(  
+			SELECT DISTINCT coalesce(MAX(idx_rgdt_date), to_char((current_date - 1), 'YYYYMMDD'))
+			FROM "buseo_idx_info"    
+			)SELECT substr(lastdate,1,4) || '-' || substr(lastdate,5,2) || '-' ||substr(lastdate,7,2) regdate  
+			FROM LASTDATE; 
+	]]>
+	</isEqual>
+	<isEqual property="buseoType" compareValue="N">
+	<![CDATA[
+	 		WITH LASTDATE(lastdate)AS(  
+			SELECT DISTINCT coalesce(MAX(idx_rgdt_date), to_char((current_date - 1), 'YYYYMMDD'))
+			FROM "nx_user_idx_info"    
+			)SELECT substr(lastdate,1,4) || '-' || substr(lastdate,5,2) || '-' ||substr(lastdate,7,2) regdate  
+			FROM LASTDATE;   
+	]]>
+	</isEqual>		
+ 	</select>
+ 	
+ 	<select id="pol.service.getUserIdxInfoList" parameterClass="polSearchVO" resultClass="userIdxInfoVO">
+ 	<![CDATA[
+ 	
+ 			SELECT ui.idx_rgdt_date
+			     , og.org_nm
+			     , ui.emp_no
+			     , ou.emp_nm
+			     , ui.mac
+			     , ui.pol_idx_id
+			     , ui.ip
+			     , ui.appr_stat_code
+			     , ui.summ_appl_desc
+			     , ui.score
+			     , ui.count
+			     , ui.sanc_date
+			     , to_char(ui.rgdt_date, 'YYYY-MM-DD') rgdt_date 
+			FROM "nx_user_idx_info" ui
+			LEFT JOIN "nx_org_user" ou ON ui.emp_no = ou.emp_no
+			LEFT JOIN "nx_org_group" og ON ou.org_code = og.org_code
+			WHERE 1=1;
+ 	]]>
+ 	</select>
+ 	<select id="pol.service.getUserIdxInfoTotalCount" parameterClass="polSearchVO" resultClass="int">
+			SELECT
+				COUNT(1)
+			FROM "nx_user_idx_info" 
+			WHERE 1=1;
+	</select>
+	
+	<!-- 조직선택박스 구성을 위한 일반사용자 정보조회 -->
+	<select id="pol.service.getUserCurrentInfo" parameterClass="java.lang.String" resultClass="egovMap">
+	<![CDATA[
+		SELECT 
+			  coalesce(org_code_0, '') orgcode0
+			, coalesce(org_nm_0, '') orgnm0
+			, coalesce(org_code_1, '') orgcode1
+			, coalesce(org_nm_1, '') orgnm1
+			, coalesce(org_code_2, '') orgcode2
+			, coalesce(org_nm_2, '') orgnm2
+			, coalesce(org_code_3, '') orgcode3
+			, coalesce(org_nm_3, '') orgnm3
+			, coalesce(org_code_4, '') orgcode4
+			, coalesce(org_nm_4, '') orgnm4
+			, emp_no empno
+			, org_code orgcode
+			, org_level orglevel
+			, fn_nx_get_userorgindex(org_code) orgindex
+		FROM "nx_org_user_hier"
+		WHERE emp_no=#userid#;
+	]]>
+		
+	</select>
+	
+	<!-- 대무자 조회 대무자는 1명이어야함 -->
+	<select id="pol.service.getProxyUserInfo" parameterClass="java.lang.String" resultClass="egovMap">
+	<![CDATA[
+		SELECT
+			 emp_no empno
+			,proxy_emp_no proxyno
+		FROM "proxy"
+		WHERE proxy_emp_no=#userid#
+		LIMIT 1;
+	]]>
+	</select>
+		
+	<!-- 조직별 결과조회 부문 -->
+	<select id="pol.service.getBumonOrgPolResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode, G.org_nm orgnm
+			, coalesce(trunc(ROUND(AVG(I.score), 3)), 0) score
+			, coalesce(SUM(I.count), 0) count
+			FROM "nx_org_group" G
+			LEFT JOIN "nx_org_user_hier" H ON G.org_code=H.org_code_1
+	]]>
+	<include refid="pol.OrgResultQuery" />
+			GROUP BY G.org_code, G.org_nm;
+	</select>
+	<!-- 조직별 결과조회 본부 -->
+	<select id="pol.service.getBonbuOrgPolResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode, G.org_nm orgnm
+			, coalesce(trunc(ROUND(AVG(I.score), 3)), 0) score, coalesce(SUM(I.count), 0) count
+			FROM "nx_org_group" G
+			LEFT JOIN "nx_org_user_hier" H ON G.org_code=H.org_code_2
+	]]>
+	<include refid="pol.OrgResultQuery" />
+			GROUP BY G.org_code, G.org_nm;
+	</select>
+	
+	
+	<!-- 조직별 결과조회 담당 -->
+	<select id="pol.service.getDamDangOrgPolResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode, G.org_nm orgnm
+			, coalesce(trunc(ROUND(AVG(I.score), 3)), 0) score, coalesce(SUM(I.count), 0) count
+			FROM "nx_org_group" G
+			LEFT JOIN "nx_org_user_hier" H ON G.org_code=H.org_code_3
+	]]>
+	<include refid="pol.OrgResultQuery" />
+			GROUP BY G.org_code, G.org_nm;
+	</select>
+	
+	
+	<!-- 조직별 결과조회 팀 -->
+	<select id="pol.service.getTeamOrgPolResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode, G.org_nm orgnm
+			, coalescetrunc((ROUND(AVG(I.score), 3)), 0) score
+			, coalesce(SUM(I.count), 0) count
+			FROM "nx_org_group" G
+			LEFT JOIN "nx_org_user_hier" H ON G.org_code=H.org_code_4
+	]]>
+	<include refid="pol.OrgResultQuery" />
+			GROUP BY G.org_code, G.org_nm;
+	</select>
+	
+	<!-- 팀원 결과 조회 - 일반진단-->
+	<select id="pol.service.getUserOrgPolResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(trunc(ROUND(AVG(I.score), 3)), 0) score
+			, coalesce(SUM(I.count), 0) count
+			, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		LEFT JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+	]]>
+ 	<include refid="pol.polDetailSearchQuery" />
+ 	<![CDATA[	
+		
+		WHERE U.org_code=#org_upper#
+		GROUP BY G.org_code, U.emp_no, U.emp_nm, G.org_nm, I.idx_rgdt_date;
+	]]>
+	</select>
+	
+	<!-- 팀원 결과 조회 - 부서진단-->
+	<select id="pol.service.getBuseoUserOrgPolResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(trunc(ROUND(AVG(I.score), 3)), 0) score
+			, coalesce(SUM(I.count), 0) count
+			, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		LEFT JOIN "buseo_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+	]]>
+ 	<include refid="pol.polDetailSearchQuery" />
+ 	<![CDATA[	
+		
+		WHERE U.org_code=#org_upper#
+		GROUP BY G.org_code, U.emp_no, U.emp_nm, G.org_nm, I.idx_rgdt_date;
+	]]>
+	</select>
+	
+	<!-- 검색어 조회 모든것에 우선한다 -->
+	<select id="pol.service.getUserSearchPolResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(trunc(ROUND(AVG(I.score), 3)), 0) score
+			, coalesce(SUM(I.count), 0) count
+			, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		LEFT JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+	]]>
+ 	<include refid="pol.polDetailSearchQuery" />
+ 	<![CDATA[		
+		WHERE 1=1
+	]]>
+		<isNotEmpty property="searchKeyword">
+			<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				U.emp_no=#searchKeyword#
+			</isEqual>		
+			<isEqual prepend="AND" property="searchCondition" compareValue="2">
+				 U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>
+		</isNotEmpty>
+	<![CDATA[
+		GROUP BY G.org_code, U.emp_no, U.emp_nm, G.org_nm, I.idx_rgdt_date;
+	]]>
+	</select>
+	
+	
+	<!-- ******************************* 정책지수 정보 상세 리스트 ************************ -->
+	
+	 <!-- 팀별 모든 사용자 정책결과 조회 -->
+	<select id="pol.service.getUserTeamSearchPolDetailResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(trunc(ROUND(I.score, 3)), 0) score
+			, coalesce(I.count, 0) count
+			, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate
+			, I.pol_idx_id polidxid
+			, I.mac, I.ip
+			, coalesce(S.sec_pol_desc, '') polidxname
+			, CASE WHEN LENGTH(I.sanc_date::varchar) = 8 THEN 'Y' ELSE 'N' END issanc
+			, CASE WHEN (SELECT COUNT(1) FROM "expn" WHERE emp_no=U.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			, coalesce(A.appr_id, '') apprid
+			, coalesce(A.appr_stat_code, '') apprstatcd
+			/*, (SELECT coalesce(code_desc, '') FROM "code_info" WHERE majr_code='A01' AND minr_code=A.appr_stat_code) apprstatname*/
+			, coalesce(C.code_desc, '') apprstatname
+			, S.appr_line_code apprlinecd
+			/*, CASE WHEn S.pol_critical_vlaue <= coalesce(I.score, 0) THEN '양호' ELSE '취약' END polstat*/
+			/*, CASE WHEN coalesce(I.score, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END polstat */
+			/*, CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END      
+			END polstat*/
+			, fn_get_scoretocodename(I.score) polstat
+			, fn_get_scoretocodecolor(I.score) polstatcolor
+			/*, CONCAT(I.idx_rgdt_date, U.emp_no, replace(replace(I.mac, '-', ''), ':', ''), I.pol_idx_id) appridcode*/
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date# 
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		WHERE G.org_code =#org_upper#
+	]]>
+	
+	</select>
+	 
+	 <!-- 정책 모니터링 상세 : 하위조직 모든 사용자 정책결과 조회 사용안함
+	<select id="pol.service.getUserOrgSearchPolDetailResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(ROUND(I.score, 2), 0) score
+			, coalesce(I.count, 0) count
+			/*, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate*/
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, I.mac, I.ip
+			, coalesce(S.sec_pol_desc, '') polidxname
+			, CASE WHEN LENGTH(I.sanc_date::varchar) = 8 THEN 'Y' ELSE 'N' END issanc
+			, CASE WHEN (SELECT COUNT(1) FROM "expn" WHERE emp_no=U.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			, coalesce(A.appr_id, '') apprid
+			, coalesce(A.appr_stat_code, '') apprstatcd
+			/*, (SELECT coalesce(code_desc, '') FROM "code_info" WHERE majr_code='A01' AND minr_code=A.appr_stat_code) apprstatname*/
+			, coalesce(C.code_desc, '') apprstatname
+			, S.appr_line_code apprlinecd
+			/*, CASE WHEn S.pol_critical_vlaue <= coalesce(I.score, 0) THEN '양호' ELSE '취약' END polstat*/
+			, CASE WHEN coalesce(I.score, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END polstat 
+			/*, CONCAT(I.idx_rgdt_date, U.emp_no, replace(replace(I.mac, '-', ''), ':', ''), I.pol_idx_id) appridcode*/
+			, CASE WHEN coalesce(N.sanc_id, '') <> '' THEN 'Y' ELSE 'N' END issanct
+			, coalesce(CAST(N.block_type as char), '') sanctkind
+			/*, coalesce((SELECT code_desc FROM code_info WHERE majr_code='S01' AND minr_code=CAST(N.block_type as char)), '') sanctname*/
+			, coalesce(D.code_desc, '') sanctname
+			, S.sanc_cate sanctcate
+			, S.appr_cate apprcate
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+		]]>
+		<include refid="pol.polDetailSearchQuery" />
+		<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.mac=N.mac AND I.emp_no=N.emp_no
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		WHERE G.org_code IN (
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+			AS
+			(
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.org_code=#org_upper#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.upper_org_code=#org_upper#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+				FROM "nx_org_group" g, LIST sb
+				WHERE g.upper_org_code=sb.org_code
+			)
+			SELECT distinct unnest(PATH)
+			FROM LIST L
+		)
+		ORDER BY I.count DESC, G.org_nm, U.emp_nm ;
+	]]>
+	
+	</select>
+	-->
+	
+	<!-- 정책 모니터링 상세 : 하위조직 모든 사용자 정책결과 조회 Paging-->
+	<select id="pol.service.getUserOrgSearchPolDetailResultListForpaging" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		WITH ULIST(emp_no, emp_nm, org_code, org_nm)
+		AS(
+		    select U.emp_no, U.emp_nm,G.org_code, G.org_nm
+		    from nx_org_user U
+		    left join nx_org_group G ON  U.org_code=G.org_code
+		    WHERE U.stat='1' AND
+		    G.org_code IN (
+			 WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    (     SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]     
+		            FROM
+		                "nx_org_group" g     
+		            WHERE
+		                g.org_code=#org_upper#    
+		            UNION
+		            ALL     SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]     
+		            FROM
+		                "nx_org_group" g     
+		            WHERE
+		                g.upper_org_code=#org_upper#  
+		            UNION
+		            ALL     SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                LEVEL + 1,
+		                CAST(g.org_code as text) || sb.PATH      
+		            FROM
+		                "nx_org_group" g,
+		                LIST sb     
+		            WHERE
+		                g.upper_org_code=sb.org_code    )    SELECT
+		                distinct unnest(PATH)    
+		            FROM
+		                LIST L  
+		    )
+		    
+		)SELECT 
+			  U.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, U.org_nm orgnm
+			, coalesce(trunc(ROUND(I.score, 3)), 0) score
+			, coalesce(I.count, 0) count
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, I.mac, I.ip
+			, coalesce(S.sec_pol_desc, '') polidxname
+			, CASE WHEN LENGTH(I.sanc_date::varchar) = 8 THEN 'Y' ELSE 'N' END issanc
+			, CASE WHEN (SELECT COUNT(*) FROM "expn" WHERE emp_no=U.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			, coalesce(A.appr_id, '') apprid
+			, coalesce(A.appr_stat_code, '') apprstatcd
+			, coalesce(C.code_desc, '') apprstatname
+			, S.appr_line_code apprlinecd
+			/*, CASE WHEN coalesce(I.score, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END polstat*/
+			, CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END      
+			END polstat
+			, fn_get_scoretocode(coalesce(I.score, 100)) scorestat
+			, fn_get_scoretocodename(coalesce(I.score, 100)) scorestatname
+			, fn_get_scoretocodecolor(coalesce(I.score, 100)) scorestatcolor
+			, CASE WHEN coalesce(N.sanc_id, '') <> '' THEN 'Y' ELSE 'N' END issanct
+			, coalesce(CAST(N.block_type as char), '') sanctkind
+			, coalesce(D.code_desc, '') sanctname
+			, S.sanc_cate sanctcate
+			, S.appr_cate apprcate
+			, CASE WHEN (SELECT coalesce(code_desc, 'N') FROM "code_info" WHERE majr_code='PCZ' AND minr_code='CD') = S.sec_sol_id THEN 'Y' ELSE 'N' END ispcgact
+			, coalesce(I.pcg_act_id, '') ispcgactid
+			, coalesce(CAST(P.block_type as char), '') pcgactkind
+			, coalesce(E.code_desc, '') pcgactname
+			, coalesce(S.exe_para, '') exepara
+			, coalesce(S.sanc_indc, false) sancindc
+			, coalesce(S.pcg_indc, false) pcgindc
+			, coalesce(to_char(I.org_eventdate, 'YYYY-MM-DD'), '') eventdate
+			, (SELECT COUNT(1) FROM nx_user_idx_info WHERE emp_no=I.emp_no AND pol_idx_id=I.pol_idx_id AND appr_id is not null AND  to_char(org_eventdate, 'YYYYMMDD') = to_char(I.org_eventdate, 'YYYYMMDD')) apprcnt
+		FROM ULIST U
+		INNER JOIN nx_user_idx_info I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date# AND I.count > 0 
+		]]>
+		<include refid="pol.polDetailSearchQuery" />
+		<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id
+		LEFT JOIN "if_sanc_info" P ON I.pcg_act_id=P.sanc_id
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		LEFT JOIN "code_info" E ON P.block_type::varchar = E.minr_code AND E.majr_code='S01'
+		ORDER BY I.count DESC, U.org_nm, U.emp_nm
+ 		LIMIT #recordCountPerPage# OFFSET #firstIndex#
+	]]>
+	
+	</select>
+	
+	<!-- 정책 모니터링 상세 : 하위조직 모든 사용자 정책결과 조회 Paging 
+	<select id="pol.service.getUserOrgSearchPolDetailResultListForpaging" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(ROUND(I.score, 2), 0) score
+			, coalesce(I.count, 0) count
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, I.mac, I.ip
+			, coalesce(S.sec_pol_desc, '') polidxname
+			, CASE WHEN LENGTH(I.sanc_date::varchar) = 8 THEN 'Y' ELSE 'N' END issanc
+			, CASE WHEN (SELECT COUNT(*) FROM "expn" WHERE emp_no=U.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			, coalesce(A.appr_id, '') apprid
+			, coalesce(A.appr_stat_code, '') apprstatcd
+			, coalesce(C.code_desc, '') apprstatname
+			, S.appr_line_code apprlinecd
+			, CASE WHEN coalesce(I.score, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END polstat 
+			, CASE WHEN coalesce(N.sanc_id, '') <> '' THEN 'Y' ELSE 'N' END issanct
+			, coalesce(CAST(N.block_type as char), '') sanctkind
+			, coalesce(D.code_desc, '') sanctname
+			, S.sanc_cate sanctcate
+			, S.appr_cate apprcate
+			, CASE WHEN (SELECT coalesce(code_desc, 'N') FROM "code_info" WHERE majr_code='PCZ' AND minr_code='CD') = S.sec_sol_id THEN 'Y' ELSE 'N' END ispcgact
+			, coalesce(I.pcg_act_id, '') ispcgactid
+			, coalesce(CAST(P.block_type as char), '') pcgactkind
+			, coalesce(E.code_desc, '') pcgactname
+			, coalesce(S.exe_para, '') exepara
+			, coalesce(S.sanc_indc, false) sancindc
+			, coalesce(S.pcg_indc, false) pcgindc
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+		]]>
+		<include refid="pol.polDetailSearchQuery" />
+		<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id
+		LEFT JOIN "if_sanc_info" P ON I.pcg_act_id=P.sanc_id
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		LEFT JOIN "code_info" E ON P.block_type::varchar = E.minr_code AND E.majr_code='S01'
+		WHERE G.org_code IN (
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+			AS
+			(
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.org_code=#org_upper#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.upper_org_code=#org_upper#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+				FROM "nx_org_group" g, LIST sb
+				WHERE g.upper_org_code=sb.org_code
+			)
+			SELECT distinct unnest(PATH)
+			FROM LIST L
+		)
+		ORDER BY I.count DESC, G.org_nm, U.emp_nm
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#
+	]]>
+	
+	</select>-->
+	
+	<!-- 정책 모니터링 상세 : 하위조직 모든 사용자 정책결과 조회 Paging -->
+	<select id="pol.service.getUserOrgSearchPolDetailResultListForPagingCount" parameterClass="polSearchVO" resultClass="int">
+	<![CDATA[
+		WITH ULIST(emp_no, emp_nm, org_code, org_nm)
+		AS(
+		    select U.emp_no, U.emp_nm,G.org_code, G.org_nm
+		    from nx_org_user U
+		    left join nx_org_group G ON  U.org_code=G.org_code
+		    WHERE U.stat='1' AND
+		    G.org_code IN (
+			 WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    (     SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]     
+		            FROM
+		                "nx_org_group" g     
+		            WHERE
+		                g.org_code=#org_upper#    
+		            UNION
+		            ALL     SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]     
+		            FROM
+		                "nx_org_group" g     
+		            WHERE
+		                g.upper_org_code=#org_upper#  
+		            UNION
+		            ALL     SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                LEVEL + 1,
+		                CAST(g.org_code as text) || sb.PATH      
+		            FROM
+		                "nx_org_group" g,
+		                LIST sb     
+		            WHERE
+		                g.upper_org_code=sb.org_code    )    SELECT
+		                distinct unnest(PATH)    
+		            FROM
+		                LIST L  
+		    )
+		    
+		)SELECT 
+			COUNT(1)
+		FROM ULIST U
+		INNER JOIN nx_user_idx_info I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date# AND I.count > 0 
+		]]>
+		<include refid="pol.polDetailSearchQuery" />
+		
+	</select>
+	
+	<!-- 정책 모니터링 상세 : 하위조직 모든 사용자 정책결과 조회 Paging 
+	<select id="pol.service.getUserOrgSearchPolDetailResultListForPagingCount" parameterClass="polSearchVO" resultClass="int">
+	<![CDATA[
+		SELECT COUNT(1)
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+		]]>
+		<include refid="pol.polDetailSearchQuery" />
+		<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.mac=N.mac AND I.emp_no=N.emp_no
+		LEFT JOIN "if_sanc_info" P ON I.pcg_act_id=P.sanc_id
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		LEFT JOIN "code_info" E ON P.block_type::varchar = E.minr_code AND E.majr_code='S01'
+		WHERE G.org_code IN (
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+			AS
+			(
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.org_code=#org_upper#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.upper_org_code=#org_upper#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+				FROM "nx_org_group" g, LIST sb
+				WHERE g.upper_org_code=sb.org_code
+			)
+			SELECT distinct unnest(PATH)
+			FROM LIST L
+		)
+		
+	]]>
+	
+	</select>-->
+	
+	<!-- 정책 모니터링 상세 : 부서진단 상세 Paging -->
+	<select id="pol.service.getBuseoSearchPolDetailResultListForPagingCount" parameterClass="polSearchVO" resultClass="int">
+	<![CDATA[
+		WITH OLIST(org_code)
+		AS(
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    ( 
+             SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                0,
+                ARRAY[CAST(g.org_code as text)]     
+            FROM
+                "nx_org_group" g     
+            WHERE
+                g.org_code=#org_upper#     
+            UNION ALL
+            SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                LEVEL + 1,
+                CAST(g.org_code as text) || sb.PATH      
+            FROM
+                "nx_org_group" g,
+                LIST sb     
+            WHERE
+                g.upper_org_code=sb.org_code )    SELECT
+                distinct unnest(PATH) org_code   
+            FROM
+                LIST L  
+			) SELECT COUNT(*)
+			FROM OLIST O    
+			LEFT JOIN "nx_org_group" G ON O.org_code=G.org_code  
+			LEFT JOIN "nx_org_user" U ON G.org_cap_no=U.emp_no
+			INNER JOIN "buseo_pol_sum_info" I ON I.org_code=G.org_code  
+			LEFT JOIN "pol_idx" PI ON I.pol_idx_id = PI.sec_pol_id
+			WHERE I.sum_rgdt_date=#begin_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+			
+	
+	</select>
+	
+	<!-- 정책 모니터링 상세 : 부서진단 상세 Paging -->
+	<select id="pol.service.getBuseoSearchPolDetailResultListForPaging" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		WITH OLIST(org_code)
+		AS(
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    ( 
+            SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                0,
+                ARRAY[CAST(g.org_code as text)]     
+            FROM
+                "nx_org_group" g     
+            WHERE
+                g.org_code=#org_upper#     
+            UNION ALL
+            SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                LEVEL + 1,
+                CAST(g.org_code as text) || sb.PATH      
+            FROM
+                "nx_org_group" g,
+                LIST sb     
+            WHERE
+                g.upper_org_code=sb.org_code )    SELECT
+                distinct unnest(PATH) org_code   
+            FROM
+                LIST L  
+			) SELECT 
+			substr(I.sum_rgdt_date,1,4) || '-' || substr(I.sum_rgdt_date,5,2) || '-' ||substr(I.sum_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, O.org_code orgcode
+			, G.org_nm orgnm
+			, G.org_cap_no capno
+			, U.emp_nm capnm
+			, coalesce(I.tot_score, 0) score
+			, coalesce(I.tot_org_emp, 0) count
+			, coalesce(I.avg) avg
+			, PI.sec_pol_desc poldesc
+			, CASE WHEN coalesce(I.avg, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '-' ELSE '-' END polstat
+			FROM OLIST O    
+			LEFT JOIN "nx_org_group" G ON O.org_code=G.org_code  
+			LEFT JOIN "nx_org_user" U ON G.org_cap_no=U.emp_no
+			INNER JOIN "buseo_pol_sum_info" I ON I.org_code=G.org_code  
+			LEFT JOIN "pol_idx" PI ON I.pol_idx_id = PI.sec_pol_id
+			WHERE I.sum_rgdt_date=#begin_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+			<![CDATA[	
+			ORDER BY tot_count DESC
+			LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+	]]>
+	
+	</select>
+	
+	<!-- 정책 모니터링 상세 : 부서진단 하위부서 상세 Paging -->
+	<select id="pol.service.getBuseoSubOrgPolDetailResultListForPagingCount" parameterClass="polSearchVO" resultClass="int">
+	<![CDATA[
+		WITH OLIST(org_code)
+		AS(
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL)    AS    ( 
+             SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                0     
+            FROM
+                "nx_org_group" g     
+            WHERE
+                g.upper_org_code=#org_upper#     
+            )    SELECT
+                org_code   
+            FROM
+                LIST L  
+			) SELECT COUNT(*)
+			FROM OLIST O    
+			LEFT JOIN "nx_org_group" G ON O.org_code=G.org_code  
+			LEFT JOIN "nx_org_user" U ON G.org_cap_no=U.emp_no
+			INNER JOIN "buseo_pol_sum_info" I ON I.org_code=G.org_code  
+			LEFT JOIN "pol_idx" PI ON I.pol_idx_id = PI.sec_pol_id
+			WHERE I.sum_rgdt_date=#begin_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+			
+	
+	</select>
+	
+	<!-- 정책 모니터링 상세 : 부서진단 하위부서 상세 Paging -->
+	<select id="pol.service.getBuseoSubOrgPolDetailResultListForPaging" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		WITH OLIST(org_code)
+		AS(
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL)    AS    ( 
+             SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                0     
+            FROM
+                "nx_org_group" g     
+            WHERE
+                g.upper_org_code=#org_upper#     
+            )    SELECT
+                org_code   
+            FROM
+                LIST L
+			) SELECT 
+			substr(I.sum_rgdt_date,1,4) || '-' || substr(I.sum_rgdt_date,5,2) || '-' ||substr(I.sum_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, O.org_code orgcode
+			, G.org_nm orgnm
+			, G.org_cap_no capno
+			, U.emp_nm capnm
+			, coalesce(I.tot_score, 0) score
+			, coalesce(I.tot_org_emp, 0) count
+			, coalesce(I.avg) avg
+			, PI.sec_pol_desc poldesc
+			, CASE WHEN coalesce(I.avg, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '-' ELSE '-' END polstat
+			FROM OLIST O    
+			LEFT JOIN "nx_org_group" G ON O.org_code=G.org_code  
+			LEFT JOIN "nx_org_user" U ON G.org_cap_no=U.emp_no
+			INNER JOIN "buseo_pol_sum_info" I ON I.org_code=G.org_code  
+			LEFT JOIN "pol_idx" PI ON I.pol_idx_id = PI.sec_pol_id
+			WHERE I.sum_rgdt_date=#begin_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+			<![CDATA[	
+			ORDER BY tot_count DESC
+			LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+	]]>
+	
+	</select>
+	
+	<!-- 정책 모니터링 상세 : 부서진단 Export Excel -->
+	<select id="pol.service.getBuseoSearchPolDetailResultListForExcelList" parameterClass="polSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+		WITH OLIST(org_code)
+		AS(
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)    AS    ( 
+             SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                0,
+                ARRAY[CAST(g.org_code as text)]     
+            FROM
+                "nx_org_group" g     
+            WHERE
+                g.org_code=#org_upper#     
+            UNION ALL
+             SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                0,
+                ARRAY[CAST(g.org_code as text)]     
+            FROM
+                "nx_org_group" g     
+            WHERE
+                g.upper_org_code=#org_upper#     
+            UNION
+            ALL     SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                LEVEL + 1,
+                CAST(g.org_code as text) || sb.PATH      
+            FROM
+                "nx_org_group" g,
+                LIST sb     
+            WHERE
+                g.upper_org_code=sb.org_code )    SELECT
+                distinct unnest(PATH) org_code   
+            FROM
+                LIST L  
+			) SELECT 
+			substr(I.sum_rgdt_date,1,4) || '-' || substr(I.sum_rgdt_date,5,2) || '-' ||substr(I.sum_rgdt_date,7,2) idx_rgdt_date
+			, I.pol_idx_id 
+			, O.org_code 
+			, G.org_nm 
+			, G.org_cap_no capno
+			, U.emp_nm capnm
+			, coalesce(I.tot_score, 0) score
+			, coalesce(I.tot_org_emp, 0) count
+			, coalesce(I.avg) avg
+			, PI.sec_pol_desc
+			/*, CASE WHEN coalesce(I.avg, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END polstat
+			, CASE WHEN coalesce(I.avg, 0) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.avg, 0) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.avg, 0) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END      
+			END polstat*/
+			, fn_get_scoretocodename(coalesce(I.avg, 0)) polstat
+			FROM OLIST O    
+			LEFT JOIN "nx_org_group" G ON O.org_code=G.org_code  
+			LEFT JOIN "nx_org_user" U ON G.org_cap_no=U.emp_no
+			INNER JOIN "buseo_pol_sum_info" I ON I.org_code=G.org_code  
+			LEFT JOIN "pol_idx" PI ON I.pol_idx_id = PI.sec_pol_id
+			WHERE I.sum_rgdt_date=#begin_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+			<![CDATA[	
+			ORDER BY tot_count DESC;
+	]]>
+	
+	</select>
+	
+	<!-- 정책 모니터링 상세 : 부서진단 하위조직 진단결과 Export Excel -->
+	<select id="pol.service.getBuseoSubOrgPolDetailResultListForExcelList" parameterClass="polSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+		WITH OLIST(org_code)
+		AS(
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL)    AS    ( 
+             SELECT
+                g.org_code,
+                g.upper_org_code,
+                g.org_nm,
+                0     
+            FROM
+                "nx_org_group" g     
+            WHERE
+                g.upper_org_code=#org_upper#     
+            )    SELECT
+                org_code   
+            FROM
+                LIST L  
+			) SELECT 
+			substr(I.sum_rgdt_date,1,4) || '-' || substr(I.sum_rgdt_date,5,2) || '-' ||substr(I.sum_rgdt_date,7,2) idx_rgdt_date
+			, I.pol_idx_id 
+			, O.org_code 
+			, G.org_nm 
+			, G.org_cap_no capno
+			, U.emp_nm capnm
+			, coalesce(I.tot_score, 0) score
+			, coalesce(I.tot_org_emp, 0) count
+			, coalesce(I.avg) avg
+			, PI.sec_pol_desc
+			/*, CASE WHEN coalesce(I.avg, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END polstat
+			, CASE WHEN coalesce(I.avg, 0) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.avg, 0) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.avg, 0) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END      
+			END polstat*/
+			, fn_get_scoretocodename(coalesce(I.avg, 0)) polstat
+			FROM OLIST O    
+			LEFT JOIN "nx_org_group" G ON O.org_code=G.org_code  
+			LEFT JOIN "nx_org_user" U ON G.org_cap_no=U.emp_no
+			INNER JOIN "buseo_pol_sum_info" I ON I.org_code=G.org_code  
+			LEFT JOIN "pol_idx" PI ON I.pol_idx_id = PI.sec_pol_id
+			WHERE I.sum_rgdt_date=#begin_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+			<![CDATA[	
+			ORDER BY tot_count DESC;
+	]]>
+	
+	</select>
+	
+	
+	<!-- 정책 모니터링 상세 Export Excel list -->
+	<select id="pol.service.getUserSearchPolDetailResultListForExcelList" parameterClass="polSearchVO" resultClass="java.util.LinkedHashMap">
+ 		<![CDATA[
+		SELECT U.emp_nm
+			, G.org_nm
+			, CASE WHEN U.is_collabor = 'N' THEN fn_nx_get_userorgname(U.origin_org_code) ELSE fn_nx_get_userorgname(G.upper_org_code)|| ' > ' || G.org_nm END org_position
+			, REPLACE(coalesce(S.sec_pol_desc, ''), ',', '/') sec_pol_desc
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) idx_rgdt_date
+			, coalesce(trunc(ROUND(I.score, 3)), 0) score
+			, coalesce(I.count, 0) count
+			, coalesce(U.email, '') email
+			, CASE WHEN U.is_collabor = 'Y' THEN (select coalesce(user_biz_name, '') from pov_org_hpt_user where emp_no = U.emp_no)  
+			  ELSE ''
+			  END userBizName
+			, CASE WHEN U.is_collabor = 'Y' THEN (select coalesce(user_biz_no, '') from pov_org_hpt_user where emp_no = U.emp_no)  
+			  ELSE ''
+			  END userBizNo  
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date# AND I.count > 0 
+		]]>
+		<include refid="pol.polDetailSearchQuery" />
+		<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id
+		LEFT JOIN "if_sanc_info" P ON I.pcg_act_id=P.sanc_id
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		LEFT JOIN "code_info" E ON P.block_type::varchar = E.minr_code AND E.majr_code='S01'
+		WHERE G.org_code IN (
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+			AS
+			(
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.org_code=#org_upper#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.upper_org_code=#org_upper#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+				FROM "nx_org_group" g, LIST sb
+				WHERE g.upper_org_code=sb.org_code
+			)
+			SELECT distinct unnest(PATH)
+			FROM LIST L
+		)
+		ORDER BY I.count DESC, G.org_nm, U.emp_nm
+	]]>	
+ 	</select>	
+	 
+	<!-- 정책 모니터링 상세 : 검색 사용자 정책결과 조회  사용안함
+	<select id="pol.service.getUserSearchPolDetailResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(ROUND(I.score, 2), 0) score
+			, coalesce(I.count, 0) count
+			/*, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate*/
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, I.mac, I.ip
+			, coalesce(S.sec_pol_desc, '') polidxname
+			, CASE WHEN LENGTH(I.sanc_date::varchar) = 8 THEN 'Y' ELSE 'N' END issanc
+			, CASE WHEN (SELECT COUNT(*) FROM "expn" WHERE emp_no=U.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			, coalesce(A.appr_id, '') apprid
+			, coalesce(A.appr_stat_code, '') apprstatcd
+			/*, (SELECT coalesce(code_desc, '') FROM "code_info" WHERE majr_code='A01' AND minr_code=A.appr_stat_code) apprstatname*/
+			, coalesce(C.code_desc, '') apprstatname
+			, S.appr_line_code apprlinecd
+			/*, CASE WHEn S.pol_critical_vlaue <= coalesce(I.score, 0) THEN '양호' ELSE '취약' END polstat*/
+			, CASE WHEN coalesce(I.score, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END polstat 
+			/*, CONCAT(I.idx_rgdt_date, U.emp_no, replace(replace(I.mac, '-', ''), ':', ''), I.pol_idx_id) appridcode*/
+			, CASE WHEN coalesce(N.sanc_id, '') <> '' THEN 'Y' ELSE 'N' END issanct
+			, coalesce(CAST(N.block_type as char), '') sanctkind
+			/*, coalesce((SELECT code_desc FROM code_info WHERE majr_code='S01' AND minr_code=CAST(N.block_type as char)), '') sanctname*/
+			, coalesce(D.code_desc, '') sanctname
+			, S.sanc_cate sanctcate
+			, S.appr_cate apprcate
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+	]]>
+	<include refid="pol.polDetailSearchQuery" />
+	<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.mac=N.mac AND I.emp_no=N.emp_no
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		WHERE 1=1
+	]]>
+	
+	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			U.emp_no=#searchKeyword#
+		</isEqual>		
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			 U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+		ORDER BY I.count DESC
+	</select>
+	-->
+	
+	<!-- 정책 모니터링 상세 Paging: 검색 사용자 정책결과 조회  -->
+	<select id="pol.service.getUserSearchPolDetailResultListForPaging" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(trunc(ROUND(I.score, 3)), 0) score
+			, coalesce(I.count, 0) count
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, I.mac, I.ip
+			, coalesce(S.sec_pol_desc, '') polidxname
+			, CASE WHEN LENGTH(I.sanc_date::varchar) = 8 THEN 'Y' ELSE 'N' END issanc
+			, CASE WHEN (SELECT COUNT(*) FROM "expn" WHERE emp_no=U.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			, coalesce(A.appr_id, '') apprid
+			, coalesce(A.appr_stat_code, '') apprstatcd
+			, coalesce(C.code_desc, '') apprstatname
+			, coalesce(S.appr_line_code, '') apprlinecd
+			/*, CASE WHEN coalesce(I.score, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END polstat */
+			, CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END      
+			END polstat
+			, fn_get_scoretocode(coalesce(I.score, 100)) scorestat
+			, fn_get_scoretocodename(coalesce(I.score, 100)) scorestatname
+			, fn_get_scoretocodecolor(coalesce(I.score, 100)) scorestatcolor
+			, CASE WHEN coalesce(N.sanc_id, '') <> '' THEN 'Y' ELSE 'N' END issanct
+			, coalesce(CAST(N.block_type as char), '') sanctkind
+			, coalesce(D.code_desc, '') sanctname
+			, coalesce(S.sanc_cate, '') sanctcate
+			, coalesce(S.appr_cate, '') apprcate
+			, CASE WHEN (SELECT coalesce(code_desc, 'N') FROM "code_info" WHERE majr_code='PCZ' AND minr_code='CD') = S.sec_sol_id THEN 'Y' ELSE 'N' END ispcgact
+			, coalesce(I.pcg_act_id, '') ispcgactid
+			, coalesce(CAST(P.block_type as char), '') pcgactkind
+			, coalesce(E.code_desc, '') pcgactname
+			, coalesce(S.exe_para, '') exepara
+			, coalesce(S.sanc_indc, false) sancindc
+			, coalesce(S.pcg_indc, false) pcgindc
+			, coalesce(to_char(I.org_eventdate, 'YYYY-MM-DD'), '') eventdate
+			, (SELECT COUNT(1) FROM nx_user_idx_info WHERE emp_no=I.emp_no AND pol_idx_id=I.pol_idx_id AND appr_id is not null AND  to_char(org_eventdate, 'YYYYMMDD') = to_char(I.org_eventdate, 'YYYYMMDD')) apprcnt
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#  AND I.count > 0 
+	]]>
+	<include refid="pol.polDetailSearchQuery" />
+	<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id
+		LEFT JOIN "if_sanc_info" P ON I.pcg_act_id=P.sanc_id
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		LEFT JOIN "code_info" E ON P.block_type::varchar = E.minr_code AND E.majr_code='S01'
+		WHERE 1=1
+	]]>
+	
+	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			U.emp_no=#searchKeyword#
+		</isEqual>		
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			 U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+		ORDER BY I.count DESC, G.org_nm, U.emp_nm
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#
+	</select>
+	
+	<!-- 정책 모니터링 상세 Paging Count: 검색 사용자 정책결과 조회 count  -->
+	<select id="pol.service.getUserSearchPolDetailResultListForPagingCount" parameterClass="polSearchVO" resultClass="int">
+	<![CDATA[
+		SELECT COUNT(1)
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#  AND I.count > 0 
+	]]>
+	<include refid="pol.polDetailSearchQuery" />
+	<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+	
+		WHERE 1=1
+	]]>
+	
+	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			U.emp_no=#searchKeyword#
+		</isEqual>		
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			 U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+	</select>
+	 
+	<!-- 정책 모니터링 상세 Export Excel: 검색 사용자 정책결과 조회  -->
+	<select id="pol.service.getUserSearchPolDetailResultListForExportExcel" parameterClass="polSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+		SELECT U.emp_nm
+			, G.org_nm
+			, CASE WHEN U.is_collabor = 'N' THEN fn_nx_get_userorgname(U.origin_org_code) ELSE fn_nx_get_userorgname(G.upper_org_code)|| ' > ' || G.org_nm END org_position
+			, REPLACE(coalesce(S.sec_pol_desc, ''), ',','/') sec_pol_desc
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) idx_rgdt_date
+			, coalesce(trunc(ROUND(I.score, 3)), 0) score
+			, coalesce(I.count, 0) count
+			, coalesce(U.email, '') email
+			, coalesce(to_char(I.org_eventdate, 'YYYY-MM-DD'), '') eventdate
+			, CASE WHEN U.is_collabor = 'Y' THEN (select coalesce(user_biz_name, '') from pov_org_hpt_user where emp_no = U.emp_no  )
+			  ELSE ''
+			  END userBizName
+			, CASE WHEN U.is_collabor = 'Y' THEN (select coalesce(user_biz_no, '') from pov_org_hpt_user where emp_no = U.emp_no  )
+			  ELSE ''
+			  END userBizNo
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date# AND I.count > 0 
+	]]>
+	<include refid="pol.polDetailSearchQuery" />
+	<![CDATA[	
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id
+		LEFT JOIN "if_sanc_info" P ON I.pcg_act_id=P.sanc_id
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		LEFT JOIN "code_info" E ON P.block_type::varchar = E.minr_code AND E.majr_code='S01'
+		WHERE 1=1
+	]]>
+	
+	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			U.emp_no=#searchKeyword#
+		</isEqual>		
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			 U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+		ORDER BY I.count DESC, G.org_nm, U.emp_nm
+	</select> 
+	 
+	<!-- 수동 소명/ 제재리스트 For Pageing -->
+	<select id="pol.service.getUserSearchSanctiontList" parameterClass="polSearchVO" resultClass="sanctSearchResultListVO">
+	<![CDATA[
+		WITH POL_LIST(org_code, emp_no, emp_nm, org_nm, score, count, idx_rgdt_date, pol_idx_id, mac, ip, appr_id, sanc_id, pcg_act_id, is_pcg_act_id, org_eventdate)
+		AS (
+			SELECT G.org_code
+				, U.emp_no 
+				, U.emp_nm 
+				, G.org_nm 
+				, coalesce(trunc(ROUND(I.score, 3)), 0)::integer score
+				, coalesce(I.count, 0)::integer count 
+				, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) idx_rgdt_date
+				, coalesce(I.pol_idx_id, '') pol_idx_id
+				, coalesce(I.mac, '') mac
+				, coalesce(I.ip, '') ip
+				, coalesce(I.appr_id, '') appr_id
+				, coalesce(I.sanc_id, '') sanc_id
+				, coalesce(I.pcg_act_id, '') pcg_act_id
+				, coalesce(I.pcg_act_id, '') is_pcg_act_id
+				, I.org_eventdate
+			  FROM nx_user_idx_info I
+			  LEFT JOIN "nx_org_user" U ON I.emp_no=U.emp_no
+			  INNER JOIN (WITH ORGLIST(org_code) AS(
+   			  			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+						AS
+						(
+							SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+			            	FROM "nx_org_group" g     
+			            	WHERE g.org_code=#org_upper#
+							UNION ALL
+							SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+							FROM "nx_org_group" g
+							WHERE g.upper_org_code=#org_upper#
+							UNION ALL
+							SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+							FROM "nx_org_group" g, LIST sb
+							WHERE g.upper_org_code=sb.org_code
+						)
+						SELECT distinct unnest(PATH) org_code
+						FROM LIST L
+   			  ) SELECT org_code FROM ORGLIST) O ON O.org_code=U.org_code 
+			  LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+			  LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id AND I.emp_no=N.emp_no
+			  LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+			  WHERE I.idx_rgdt_date BETWEEN #begin_date# AND #end_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+		<isNotEmpty property="searchKeyword">
+			<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				U.emp_no=#searchKeyword#
+			</isEqual>		
+			<isEqual prepend="AND" property="searchCondition" compareValue="2">
+				 U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>
+		</isNotEmpty>
+		<isNotEmpty property="sanctStatus">
+			<isEqual prepend="AND" property="sanctStatus" compareValue="NA">
+				N.sanc_id is null
+			</isEqual>	
+			<isEqual prepend="AND" property="sanctStatus" compareValue="Y">
+				N.is_bother_on = true
+			</isEqual>
+			<isEqual prepend="AND" property="sanctStatus" compareValue="N">
+				N.is_bother_on = false
+			</isEqual>
+		</isNotEmpty>
+		<isNotEmpty property="apprStatus">
+			<isEqual prepend="AND" property="apprStatus" compareValue="NA">
+				A.appr_id is null
+			</isEqual>	
+			<isNotEqual prepend="AND" property="apprStatus" compareValue="NA">
+				A.appr_stat_code = #apprStatus#
+			</isNotEqual>
+		</isNotEmpty>	
+		<![CDATA[	     			
+		ORDER BY I.idx_rgdt_date
+		LIMIT #recordCountPerPage# OFFSET #firstIndex# 
+		)SELECT I.org_code, I.emp_no, I.emp_nm, I.org_nm, I.score, I.count, I.idx_rgdt_date, I.pol_idx_id, I.mac, I.ip, I.appr_id, I.sanc_id, I.pcg_act_id, I.is_pcg_act_id
+			, CASE WHEN (SELECT COUNT(1) FROM "expn" WHERE emp_no=I.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			, coalesce(A.appr_stat_code, '') appr_stat_code
+			, coalesce(C.code_desc, '') appr_stat_name
+			, coalesce(S.appr_line_code, '') appr_line_code
+			/*, CASE WHEN coalesce(I.score, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN 'G' ELSE 'B' END pol_stat_code*/
+			/*, CASE WHEN coalesce(I.score, 0) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN 'G' ELSE
+					CASE WHEN coalesce(I.score, 0) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.score, 0) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN 'W' ELSE 'B'
+				    END 
+				END pol_stat_code*/
+			, fn_get_scoretocode(coalesce(I.score, 0)) pol_stat_code
+			, fn_get_scoretocodecolor(coalesce(I.score, 0)) pol_stat_color
+			, fn_get_scoretocodename(coalesce(I.score, 0)) pol_stat_name
+			, CASE WHEN coalesce(N.sanc_id, '') <> '' THEN 'Y' ELSE 'N' END is_sanct
+			, coalesce(CAST(N.block_type as char), '') sanct_kind
+			, coalesce(D.code_desc, '') sanct_name
+			, coalesce(S.sanc_cate, '') sanct_cate
+			, coalesce(S.appr_cate, '') appr_cate
+			, CASE WHEN (SELECT coalesce(code_desc, 'N') FROM "code_info" WHERE majr_code='PCZ' AND minr_code='CD') = S.sec_sol_id THEN 'Y' ELSE 'N' END is_pcgact
+			, coalesce(CAST(P.block_type as char), '') pcgact_kind
+			, coalesce(E.code_desc, '') pcgact_name
+			, coalesce(S.exe_para, '') exe_para
+			, coalesce(S.sanc_indc, false) sanc_indc
+			, coalesce(S.pcg_indc, false) pcg_indc
+			, CASE WHEN N.is_bother_on IS NULL THEN '미제재' ELSE CASE WHEN N.is_bother_on THEN coalesce(D.code_desc, '') || '[제재중]' ELSE coalesce(D.code_desc, '') || '[해제]' END  END is_bother_txt
+			, CASE WHEn A.appr_stat_code IS NULL THEN '미소명' ELSE C.code_desc END is_apprstatus_txt
+			, REPLACE(coalesce(S.sec_pol_desc, ''), ',', '/') pol_idx_name
+			, CASE WHEN N.is_bother_on IS NULL THEN 'NS' ELSE 
+				CASE WHEN N.is_bother_on THEN 'SS' ELSE  'RS' END 
+			  END is_bother_type    
+			, coalesce(substr(N.sanc_date, 1, 4) || '-' || substr(N.sanc_date, 5, 2) || '-' ||substr(N.sanc_date, 7, 2), '') sanc_date 
+			, coalesce((SELECT to_char(rgdt_date, 'YYYY-MM-DD') FROM if_sanc_info_log SL WHERE I.sanc_id=SL.sanc_id AND I.emp_no=SL.emp_no AND  SL.is_bother_on=false AND SL.is_read_indc=true order by rgdt_date desc limit 1), '제재중') re_sanc_date 
+			, CASE WHEN A.appr_stat_code IS NULL THEN 'NA' ELSE C.minr_code END is_apprstatus_type
+			, coalesce(to_char(A.rgdt_date, 'YYYY-MM-DD'), '') appr_date
+			, coalesce((SELECT to_char(rgdt_date, 'YYYY-MM-DD') FROM if_bpm_log BL where BL.appr_id=I.appr_id AND BL.emp_no=I.emp_no AND bpm_ret_code='F01' ORDER BY rgdt_date desc limit 1), '처리중') re_appr_date
+			, coalesce(to_char(I.org_eventdate, 'YYYY-MM-DD'), '') eventdate
+			, (SELECT COUNT(1) FROM nx_user_idx_info WHERE emp_no=I.emp_no AND pol_idx_id=I.pol_idx_id AND appr_id is not null AND  to_char(org_eventdate, 'YYYYMMDD') = to_char(I.org_eventdate, 'YYYYMMDD')) appr_cnt
+		FROM POL_LIST I
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id AND I.emp_no=N.emp_no
+		LEFT JOIN "if_sanc_info" P ON I.pcg_act_id=P.sanc_id AND I.emp_no=P.emp_no
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		LEFT JOIN "code_info" E ON P.block_type::varchar = E.minr_code AND E.majr_code='S01'
+		ORDER BY I.idx_rgdt_date, I.count DESC;
+		]]>
+	</select>
+	
+	<!-- 수동 소명/ 제재리스트 For Pageing Count-->
+	<select id="pol.service.getUserSearchSanctiontListTotalCount" parameterClass="polSearchVO" resultClass="int">
+	<![CDATA[
+		SELECT COUNT(1)
+			  FROM nx_user_idx_info I
+			  LEFT JOIN "nx_org_user" U ON I.emp_no=U.emp_no
+			  INNER JOIN (
+   			  		WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+						AS
+						(
+							SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+			            	FROM "nx_org_group" g     
+			            	WHERE g.org_code=#org_upper#
+							UNION ALL
+							SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+							FROM "nx_org_group" g
+							WHERE g.upper_org_code=#org_upper#
+							UNION ALL
+							SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+							FROM "nx_org_group" g, LIST sb
+							WHERE g.upper_org_code=sb.org_code
+						)
+						SELECT distinct unnest(PATH) org_code
+						FROM LIST L
+   			  ) OL ON OL.org_code=U.org_code
+			  LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+			  LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+   			  LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id AND I.emp_no=N.emp_no
+   			  
+			  WHERE I.idx_rgdt_date BETWEEN #begin_date# AND #end_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+			
+		<isNotEmpty property="searchKeyword">
+			<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				U.emp_no=#searchKeyword#
+			</isEqual>		
+			<isEqual prepend="AND" property="searchCondition" compareValue="2">
+				 U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>
+		</isNotEmpty>
+		<isNotEmpty property="sanctStatus">
+			<isEqual prepend="AND" property="sanctStatus" compareValue="NA">
+				N.sanc_id is null
+			</isEqual>	
+			<isEqual prepend="AND" property="sanctStatus" compareValue="Y">
+				N.is_bother_on = true
+			</isEqual>
+			<isEqual prepend="AND" property="sanctStatus" compareValue="N">
+				N.is_bother_on = false
+			</isEqual>
+		</isNotEmpty>
+		<isNotEmpty property="apprStatus">
+			<isEqual prepend="AND" property="apprStatus" compareValue="NA">
+				A.appr_id is null
+			</isEqual>	
+			<isNotEqual prepend="AND" property="apprStatus" compareValue="NA">
+				A.appr_stat_code = #apprStatus#
+			</isNotEqual>
+		</isNotEmpty>
+	</select>
+	 
+	<!-- 수동 소명/ 제재리스트 For Export Excel-->
+	<select id="pol.service.getUserSearchSanctiontListForExportExcel" parameterClass="polSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+		WITH POL_LIST(org_code, emp_no, emp_nm, org_nm, score, count, idx_rgdt_date, pol_idx_id, mac, ip, appr_id, sanc_id, pcg_act_id, is_pcg_act_id)
+		AS (
+			SELECT coalesce(G.org_code, '') org_code
+				, coalesce(U.emp_no , '') emp_no
+				, coalesce(U.emp_nm , '') emp_nm
+				, coalesce(G.org_nm, '') org_nm 
+				, coalesce(trunc(ROUND(I.score, 3)), 0)::integer score
+				, coalesce(I.count, 0)::integer count 
+				, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) idx_rgdt_date
+				, coalesce(I.pol_idx_id, '') pol_idx_id
+				, coalesce(I.mac, '') mac
+				, coalesce(I.ip, '') ip
+				, coalesce(I.appr_id, '') appr_id
+				, coalesce(I.sanc_id, '') sanc_id
+				, coalesce(I.pcg_act_id, '') pcg_act_id
+				, coalesce(I.pcg_act_id, '') is_pcg_act_id
+			  FROM nx_user_idx_info I
+			  LEFT JOIN "nx_org_user" U ON I.emp_no=U.emp_no
+			  LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+			  LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+			  LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id AND I.emp_no=N.emp_no
+			  INNER JOIN (
+   			  	WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+						AS
+						(
+							SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+			            	FROM "nx_org_group" g     
+			            	WHERE g.org_code=#org_upper#
+							UNION ALL
+							SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+							FROM "nx_org_group" g
+							WHERE g.upper_org_code=#org_upper#
+							UNION ALL
+							SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+							FROM "nx_org_group" g, LIST sb
+							WHERE g.upper_org_code=sb.org_code
+						)
+						SELECT distinct unnest(PATH) org_code
+						FROM LIST L
+   			  ) OL ON G.org_code=OL.org_code
+			  WHERE I.idx_rgdt_date BETWEEN #begin_date# AND #end_date#
+			]]>
+			<include refid="pol.polDetailSearchQuery" />
+			
+		<isNotEmpty property="searchKeyword">
+			<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				U.emp_no=#searchKeyword#
+			</isEqual>		
+			<isEqual prepend="AND" property="searchCondition" compareValue="2">
+				 U.emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>
+		</isNotEmpty>
+		<isNotEmpty property="sanctStatus">
+			<isEqual prepend="AND" property="sanctStatus" compareValue="NA">
+				N.sanc_id is null
+			</isEqual>	
+			<isEqual prepend="AND" property="sanctStatus" compareValue="Y">
+				N.is_bother_on = true
+			</isEqual>
+			<isEqual prepend="AND" property="sanctStatus" compareValue="N">
+				N.is_bother_on = false
+			</isEqual>
+		</isNotEmpty>
+		<isNotEmpty property="apprStatus">
+			<isEqual prepend="AND" property="apprStatus" compareValue="NA">
+				A.appr_id is null
+			</isEqual>	
+			<isNotEqual prepend="AND" property="apprStatus" compareValue="NA">
+				A.appr_stat_code = #apprStatus#
+			</isNotEqual>
+		</isNotEmpty>	
+		<![CDATA[	     			
+		ORDER BY I.idx_rgdt_date, I.count DESC
+		)SELECT coalesce(I.org_code, '') org_code
+			, coalesce(I.emp_no, '') emp_no
+			, coalesce(I.emp_nm, '') emp_nm
+			, coalesce(I.org_nm, '') org_nm
+			, coalesce(I.score, '0') score
+			, coalesce(I.count, '0') count
+			, coalesce(I.idx_rgdt_date, '') idx_rgdt_date
+			, coalesce(I.mac, '') mac
+			, coalesce(I.ip, '') ip
+			, REPLACE(coalesce(S.sec_pol_desc, ''), ',', '/') pol_idx_name
+			, CASE WHEN (SELECT COUNT(1) FROM "expn" WHERE emp_no=I.emp_no) > 0 THEN 'Y' ELSE 'N' END isexpn
+			/*, CASE WHEN coalesce(I.score, 0) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호' ELSE '취약' END pol_stat_code*/
+			, CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END      
+			END pol_stat_code
+			, CASE WHEN (SELECT coalesce(code_desc, 'N') FROM "code_info" WHERE majr_code='PCZ' AND minr_code='CD') = S.sec_sol_id THEN 'Y' ELSE 'N' END is_pcgact
+			, CASE WHEN N.is_bother_on IS NULL THEN '미제재' ELSE CASE WHEN N.is_bother_on THEN coalesce(D.code_desc, '') || '[제재중]' ELSE coalesce(D.code_desc, '') || '[해제]' END  END is_bother_txt
+			, coalesce(substr(N.sanc_date, 1, 4) || '-' || substr(N.sanc_date, 5, 2) || '-' ||substr(N.sanc_date, 7, 2), '') sanc_date 
+			, coalesce((SELECT to_char(rgdt_date, 'YYYY-MM-DD') FROM if_sanc_info_log SL WHERE I.sanc_id=SL.sanc_id AND I.emp_no=SL.emp_no AND  SL.is_bother_on=false AND SL.is_read_indc=true order by rgdt_date desc limit 1), '') re_sanc_date 
+			
+			, CASE WHEn A.appr_stat_code IS NULL THEN '미소명' ELSE C.code_desc END is_apprstatus_txt
+			, coalesce(to_char(A.rgdt_date, 'YYYY-MM-DD'), '') appr_date
+			, coalesce((SELECT to_char(rgdt_date, 'YYYY-MM-DD') FROM if_bpm_log BL where BL.appr_id=I.appr_id AND BL.emp_no=I.emp_no AND bpm_ret_code='F01' ORDER BY rgdt_date desc limit 1), '') re_appr_date
+		FROM POL_LIST I
+		LEFT JOIN "pol_idx" S ON I.pol_idx_id=S.sec_pol_id
+		LEFT JOIN "if_appr_info" A ON I.appr_id=A.appr_id AND I.emp_no=A.emp_no
+		LEFT JOIN "if_sanc_info" N ON I.sanc_id=N.sanc_id AND I.emp_no=N.emp_no
+		LEFT JOIN "if_sanc_info" P ON I.pcg_act_id=P.sanc_id AND I.emp_no=P.emp_no
+		LEFT JOIN "code_info" C ON A.appr_stat_code=C.minr_code AND C.majr_code='A01'
+		LEFT JOIN "code_info" D ON N.block_type::varchar = D.minr_code AND D.majr_code='S01'
+		LEFT JOIN "code_info" E ON P.block_type::varchar = E.minr_code AND E.majr_code='S01'
+		ORDER BY I.idx_rgdt_date, I.count DESC;
+		]]>
+	</select> 
+	 
+	<!-- ******************************* 정책지수정보 상세 리스트 끝************************ -->
+	
+	<!-- 개인별 지수정책 진단결과 조회 - 일반진단-->
+	<select id="pol.service.getUserOrgPolDetailResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(trunc(ROUND(I.score, 3)), 0) score
+			, coalesce(I.count, 0) count
+			/*, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate*/
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, coalesce(S.policy_name, '') polidxname
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+	]]>
+ 	<include refid="pol.polDetailSearchQuery" />
+ 	<![CDATA[			
+		LEFT JOIN "policy_info" S ON I.pol_idx_id=S.policy_id
+		WHERE U.org_code=#org_upper# AND U.emp_no=#emp_no#;
+	]]>
+	</select>
+	
+	<!-- 개인별 지수정책 진단결과 조회 - 부서진단-->
+	<select id="pol.service.getBuseoUserOrgPolDetailResultList" parameterClass="polSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm empnm
+			, G.org_nm orgnm
+			, coalesce(trunc(ROUND(I.score, 3)), 0) score
+			, coalesce(I.count, 0) count
+			, substr(I.idx_rgdt_date,1,4) || '-' || substr(I.idx_rgdt_date,5,2) || '-' ||substr(I.idx_rgdt_date,7,2) regdate
+			, I.pol_idx_id polidxid
+			, coalesce(S.policy_name, '') polidxname
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		INNER JOIN "buseo_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date=#begin_date#
+	]]>
+ 	<include refid="pol.polDetailSearchQuery" />
+ 	<![CDATA[			
+		LEFT JOIN "policy_info" S ON I.pol_idx_id=S.policy_id
+		WHERE U.org_code=#org_upper# AND U.emp_no=#emp_no#;
+	]]>
+	</select>
+	
+	
+	<!-- select user_id, user_name, pc_ip, pc_mac, logtype_id, log_error, checkout_time, encryptfile_count from "SECLOG"."DRM_UserLog_Info" -->
+	<!-- 로그상세조회 직접 조회로 수정 
+	<select id="pol.service.getPolDetailLogForDateNUser" parameterClass="java.util.HashMap" resultClass="java.util.LinkedHashMap" remapResults="true">
+	<![CDATA[
+		SELECT T.sldm_empno
+		 , U.emp_nm
+		 , G.org_nm
+		 , T.sldm_ip
+		 , T.sldm_mac ,
+		 $columnsname$ 
+		FROM $tblname$ T
+		LEFT JOIN "nx_org_user" U ON T.sldm_empno=U.emp_no
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		WHERE sldm_policy_id=#polcode# AND sldm_empno = #empno# AND to_char(sldm_org_logdate, 'YYYYMMDD') = #begindate#
+	]]>
+	<isNotEqual prepend="AND" property="mac" compareValue="">
+		sldm_mac=#mac#
+	</isNotEqual>
+	</select>
+	-->
+	
+	<!-- 로그상세조회용 테이블 / 컬럼 조회 -->
+	<select id="pol.service.getPolDetailLogTableNColumns" parameterClass="java.util.HashMap" resultClass="egovMap">
+	<![CDATA[
+		SELECT sec_pol_table tblname
+			, sec_pol_table_col columnsname
+		FROM "pol_idx"
+		WHERE sec_pol_id =#polcode#
+	]]>
+	
+	</select>
+	
+	<!-- 지수정책 관리 리스트 조회 쿼리 -->
+	<sql id="pol.PolListSearchQuery">
+ 		<isNotEqual prepend="AND" property="majCode" compareValue="">
+			<![CDATA[
+				 SP.policy_id IN (SELECT sec_pol_id FROM "pol_idx" WHERE diag_majr_code=#majCode#
+			]]>	
+			<isNotEqual prepend="AND" property="minCode" compareValue="">
+			<![CDATA[
+			 	diag_minr_code=#minCode#
+			]]>			
+			</isNotEqual>	
+			<isNotEqual prepend="AND" property="polCode" compareValue="">
+			<![CDATA[
+			 	policy_id=#polCode#
+			]]>			
+			</isNotEqual>
+			<![CDATA[
+			)
+			]]>
+		</isNotEqual>
+		<isNotEmpty prepend="AND" property="searchKeyword">
+			SP.policy_name LIKE CONCAT('%',#searchKeyword#,'%')
+		</isNotEmpty>
+		<isNotEmpty prepend="AND" property="searchType">
+			 coalesce(PI.use_indc, 'N')=#searchType#
+		</isNotEmpty>
+ 	</sql>
+	<!-- 지수화 정책 관리 -->
+	<select id="pol.service.getSecPolList" parameterClass="polSearchVO" resultClass="secPolInfoVO">
+	<![CDATA[
+		SELECT SP.policy_id sec_pol_id
+		 , SP.src_system sec_sol_id
+		 , PI.use_indc idx_indc
+		 , coalesce(PLI.diag_desc, '') majr_desc
+		 , coalesce(PMI.diag_desc, '') minr_desc
+		 , coalesce(SP.policy_name, '') sec_pol_desc
+		 , coalesce(PI.sec_pol_cat, '') sec_pol_cat
+		 , CASE WHEN coalesce(PI.sec_pol_cat, '') = '01' THEN '카운트' ELSE 'O,X' END  sec_pol_cat_desc
+		 , coalesce((SELECT code_desc FROM "code_info" WHERE majr_code='P01' AND minr_code= PI.pol_critical_value_type), '') pol_critical_value_type
+		 , coalesce(PI.pol_critical_vlaue, 0) pol_critical_vlaue
+		 , coalesce(PI.pol_weight_value, 0) pol_weight_value
+		 , coalesce(PI.use_indc, 'N') use_indc
+		 , coalesce((SELECT code_desc FROM code_info WHERE majr_code='A02' AND minr_code=PI.appr_line_code), '') appr_line_code
+		 , CASE WHEN coalesce(PI.appr_cate, '') ='0' THEN '자동' WHEN coalesce(PI.appr_cate, '') = '1' THEN '수동' ELSE '' END appr_cate
+		 , CASE WHEN coalesce(PI.sanc_cate, '') ='0' THEN '자동' WHEN coalesce(PI.sanc_cate, '') = '1' THEN '수동' ELSE '' END sanc_cate
+		 , coalesce(PI.ordr, '') ordr
+		  , coalesce(PI.bigo, '') bigo
+		FROM "policy_info" SP
+		LEFT JOIN "pol_idx" PI ON SP.policy_id=PI.sec_pol_id
+		LEFT JOIN "diag_item_code" PLI ON PI.diag_majr_code=PLI.diag_majr_code AND PLI.diag_minr_code=PI.diag_majr_code
+		LEFT JOIN "diag_item_code" PMI ON PI.diag_majr_code=PMI.diag_majr_code AND PMI.diag_minr_code=PI.diag_minr_code
+		WHERE SP.idx_indc='Y'
+	]]>
+	<include refid="pol.PolListSearchQuery" />
+	<!--수정 2017.04.27  -->
+	<!-- ORDER BY PLI.diag_desc, PMI.diag_desc, SP.policy_name  -->
+	<![CDATA[
+	ORDER BY PI.ordr::int asc
+	LIMIT #recordCountPerPage# OFFSET #firstIndex#
+	]]>
+	</select>
+	<!-- 지수화정책 관리 총 COUNT -->
+	<select id="pol.service.getSecPolListTotalCount" parameterClass="polSearchVO" resultClass="int">
+	<![CDATA[
+		SELECT
+			COUNT(1)
+		FROM "policy_info" SP
+		LEFT JOIN "pol_idx" PI ON SP.policy_id=PI.sec_pol_id
+		LEFT JOIN "diag_item_code" PLI ON PI.diag_majr_code=PLI.diag_majr_code AND PLI.diag_minr_code=PI.diag_majr_code
+		LEFT JOIN "diag_item_code" PMI ON PI.diag_majr_code=PMI.diag_majr_code AND PMI.diag_minr_code=PI.diag_minr_code
+		WHERE SP.idx_indc='Y'
+	]]>	
+	<include refid="pol.PolListSearchQuery" />
+	</select>
+	
+	<!-- 지수화 정책 관리 -->
+	<select id="pol.service.getSecPolListForExportExcel" parameterClass="polSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+		SELECT SP.policy_id sec_pol_id
+		 , coalesce(PLI.diag_desc, '') majr_desc
+		 , coalesce(PMI.diag_desc, '') minr_desc
+		 , coalesce(PI.sec_pol_desc, '') sec_pol_desc
+		 , CASE WHEN coalesce(PI.sec_pol_cat, '') = '01' THEN '카운트' ELSE 'O,X' END  sec_pol_cat_desc
+		 , coalesce(PI.pol_weight_value, 0) pol_weight_value
+		 , coalesce(PI.use_indc, 'N') use_indc
+		 , coalesce((SELECT code_desc FROM code_info WHERE majr_code='A02' AND minr_code=PI.appr_line_code), '') appr_line_code
+		 , CASE WHEN coalesce(PI.appr_cate, '') ='0' THEN '자동' WHEN coalesce(PI.appr_cate, '') = '1' THEN '수동' ELSE '' END appr_cate
+		 , CASE WHEN coalesce(PI.sanc_cate, '') ='0' THEN '자동' WHEN coalesce(PI.sanc_cate, '') = '1' THEN '수동' ELSE '' END sanc_cate
+		 , coalesce(PI.bigo, '') bigo
+		FROM "policy_info" SP
+		LEFT JOIN "pol_idx" PI ON SP.policy_id=PI.sec_pol_id
+		LEFT JOIN "diag_item_code" PLI ON PI.diag_majr_code=PLI.diag_majr_code AND PLI.diag_minr_code=PI.diag_majr_code
+		LEFT JOIN "diag_item_code" PMI ON PI.diag_majr_code=PMI.diag_majr_code AND PMI.diag_minr_code=PI.diag_minr_code
+		WHERE SP.idx_indc='Y'
+	]]>
+	<include refid="pol.PolListSearchQuery" />
+	<![CDATA[
+	ORDER BY PLI.diag_desc, PMI.diag_desc, SP.policy_name 
+	]]>
+	</select>
+	
+	<!-- 지수화 정책 관리 -->
+	<select id="pol.man.getPolIdxInfo" parameterClass="java.lang.String" resultClass="secPolInfoVO">
+	<![CDATA[
+		SELECT SP.policy_id sec_pol_id
+			  , SP.src_system sec_sol_id
+			  , PI.sec_pol_desc sec_pol_desc
+			  , coalesce(PI.sec_sol_id, '') sec_sol_id
+			  , coalesce(PI.diag_majr_code, '') diag_majr_code
+			  , coalesce(PI.diag_minr_code, '') diag_minr_code
+			  , coalesce(PI.sec_pol_sql, '') sec_pol_sql
+			  , coalesce(PI.sec_pol_patn_con, '') sec_pol_patn_con
+			  , coalesce(PI.sec_pol_cat, '') sec_pol_cat
+			  , coalesce(PI.appr_line_code, '') appr_line_code
+			  , coalesce(to_char(PI.rgdt_date, 'YYYY-MM-DD'), '') rgdt_date
+			  , coalesce(PI.sec_pol_table, '') sec_pol_table
+			  , coalesce(PI.sec_pol_table_col, '') sec_pol_table_col
+			  , coalesce(PI.pol_critical_vlaue, 0) pol_critical_vlaue
+			  , coalesce(PI.pol_weight_value, 0) pol_weight_value
+			  , coalesce(PI.pol_critical_value_type, '') pol_critical_value_type
+			  , coalesce(PI.pol_critical_value_data_type, '') pol_critical_value_data_type
+			  , coalesce(PI.appr_cate, '') appr_cate
+			  , coalesce(PI.sanc_cate, '') sanc_cate
+			  , coalesce(PI.appr_attach_indc, '') appr_attach_indc
+			  , coalesce(PI.appr_note, '') appr_note
+			  , coalesce(PI.use_indc, '') use_indc
+			  , CASE WHEn (SELECT COUNT(*) FROM "code_info" WHERE majr_code='PCZ' AND minr_code='CD' AND code_desc=SP.src_system) > 0 THEN 'Y' ELSE 'N' END ispcgact
+			  , coalesce(PI.exe_para, '') exe_para
+			  , coalesce(PI.sanc_indc, false) sanc_indc
+			  , coalesce(PI.pcg_indc, false) pcg_indc
+			  , coalesce(SP.cond_field1, '') cond_field1
+			  , coalesce(PI.sec_pol_notice, '') sec_pol_notice
+			  , coalesce(PI.sec_pol_notice_detail, '') sec_pol_notice_detail
+			  , coalesce(PI.buseo_indc, 'N') buseo_indc
+			  , coalesce(PI.gajeom_indc, 'N') gajeom_indc
+			  , coalesce(PI.reason, '') reason
+			  , coalesce(PI.ordr, '') ordr
+			  , coalesce(PI.start_day, '') startDay
+			  , coalesce(PI.end_day, '') endDay
+			  , coalesce(PI.collabor_indc, '') collabor_indc
+			  , coalesce(PI.bigo, '') bigo
+		 FROM "policy_info" SP
+		 LEFT JOIN "pol_idx" PI ON SP.policy_id=PI.sec_pol_id
+		 WHERE SP.policy_id=#sec_pol_id#;
+	]]>	
+	</select>
+	
+	<select id="pol.man.getPolConInfo" parameterClass="java.lang.String" resultClass="polConVO">
+	<![CDATA[
+		SELECT SP.policy_id
+		  , coalesce(PC.con_cnt, 0) con_cnt
+		  , coalesce(PC.con_from_1, '') con_from_1
+		  , coalesce(PC.con_to_1, '') con_to_1
+		  , coalesce(PC.con_scor_1, 0) con_scor_1
+		  , coalesce(PC.con_from_2, '') con_from_2
+		  , coalesce(PC.con_to_2, '') con_to_2
+		  , coalesce(PC.con_scor_2, 0) con_scor_2
+		  , coalesce(PC.con_from_3, '') con_from_3
+		  , coalesce(PC.con_to_3, '') con_to_3
+		  , coalesce(PC.con_scor_3, 0) con_scor_3
+		  , coalesce(PC.con_from_4, '') con_from_4
+		  , coalesce(PC.con_to_4, '') con_to_4
+		  , coalesce(PC.con_scor_4, 0) con_scor_4
+		  , coalesce(PC.con_from_5, '') con_from_5
+		  , coalesce(PC.con_to_5, '') con_to_5
+		  , coalesce(PC.con_scor_5, 0) con_scor_5
+		  , coalesce(to_char(PC.rgdt_date, 'YYYY-MM-DD'), '') rgdt_date
+		 FROM "policy_info" SP
+		 LEFT JOIN "pol_con" PC ON SP.policy_id=PC.sec_pol_id
+		 WHERE SP.policy_id=#sec_pol_id#
+ 	]]>	
+	</select>
+	<!-- PC지킴이 조치 파라메터 리스트조회 -->
+	<select id="pol.man.getPcgActionParamList" resultClass="egovMap">
+	<![CDATA[
+		SELECT n.nspname
+		 , c.relname tablename
+		 , obj_description(c.oid) tabledesc
+		FROM pg_catalog.pg_class c
+		INNER JOIN pg_catalog.pg_namespace n ON c.relnamespace=n.oid
+		WHERE c.relkind='r' AND nspname=#nspname# AND c.relname LIKE 'sldm%';
+	]]>
+	</select>
+	
+	<update id="pol.man.setUpdatePolInfo" parameterClass="secPolInfoVO" >
+ 	<![CDATA[
+		UPDATE "pol_idx" SET diag_majr_code=#diag_majr_code# 
+							,diag_minr_code=#diag_minr_code#
+							,appr_line_code=#appr_line_code#
+							,sec_pol_table=#sec_pol_table#
+							,sec_pol_table_col=#sec_pol_table_col#
+							,pol_critical_vlaue=#pol_critical_vlaue#
+							,pol_weight_value=#pol_weight_value#
+							,pol_critical_value_type=#pol_critical_value_type#
+							,pol_critical_value_data_type=#pol_critical_value_data_type#
+							,sec_pol_cat=#sec_pol_cat#
+							,appr_cate=#appr_cate#
+							,sanc_cate=#sanc_cate#
+							,appr_attach_indc=#appr_attach_indc#
+							,appr_note=#appr_note#
+							,use_indc=#use_indc#
+							,exe_para=#exe_para#
+							,sanc_indc=#sanc_indc#
+							,pcg_indc=#pcg_indc#
+							,updt_date=NOW()
+							,sec_pol_notice=#sec_pol_notice#
+							,sec_pol_notice_detail=#sec_pol_notice_detail#
+							,buseo_indc=#buseo_indc#
+							,gajeom_indc=#gajeom_indc#
+							,reason=#reason#
+							,ordr=#ordr#
+							,start_day=#startDay#
+							,end_day=#endDay#
+							,bigo=#bigo#
+							,collabor_indc = #collabor_indc#
+							,sec_pol_desc=#sec_pol_desc#
+		WHERE sec_pol_id=#sec_pol_id# 
+    ]]>   
+    </update>
+	
+	<insert id="pol.man.setInsertPolInfo" parameterClass="secPolInfoVO">
+	<![CDATA[
+		INSERT INTO "pol_idx" (sec_pol_id
+							, sec_sol_id
+							, diag_majr_code
+							, diag_minr_code
+							, sec_pol_desc
+							, appr_line_code
+							, rgdt_date
+							, sec_pol_table
+							, sec_pol_table_col
+							, pol_critical_vlaue
+							, pol_weight_value
+							, pol_critical_value_type
+							, pol_critical_value_data_type
+							, sec_pol_cat
+							, appr_cate
+							, sanc_cate
+							, appr_attach_indc
+							, appr_note
+							, use_indc
+							, exe_para
+							, sanc_indc
+							, pcg_indc
+							, sec_pol_notice
+							, sec_pol_notice_detail
+							, buseo_indc
+							, gajeom_indc
+							, reason
+							, ordr
+							, start_day
+							, end_day
+							,bigo
+							,collabor_indc) 
+							VALUES
+							(#sec_pol_id#
+							,#sec_sol_id#
+							,#diag_majr_code#
+							,#diag_minr_code#
+							,#sec_pol_desc#
+							,#appr_line_code#
+							,NOW()
+							,#sec_pol_table#
+							,#sec_pol_table_col#
+							,#pol_critical_vlaue#
+							,#pol_weight_value#
+							,#pol_critical_value_type#
+							,#pol_critical_value_data_type#
+							,#sec_pol_cat#
+							,#appr_cate#
+							,#sanc_cate#
+							,#appr_attach_indc#
+							,#appr_note#
+							,#use_indc#
+							,#exe_para#
+							,#sanc_indc#
+							,#pcg_indc#
+							,#sec_pol_notice#
+							,#sec_pol_notice_detail#
+							,#buseo_indc#
+							,#gajeom_indc#
+							,#reason#
+							,#ordr#
+							,#startDay#
+							,#endDay#
+							,#bigo#
+							,#collabor_indc#);
+	]]>	
+	</insert>
+	
+	<update id="pol.man.setUpdatePolConInfo" parameterClass="polConVO" >
+ 	<![CDATA[
+		UPDATE "pol_con" SET con_cnt=#con_cnt# 
+							,con_from_1=#con_from_1#
+							,con_to_1=#con_to_1#
+							,con_scor_1=#con_scor_1#
+							,con_from_2=#con_from_2#
+							,con_to_2=#con_to_2#
+							,con_scor_2=#con_scor_2#
+							,con_from_3=#con_from_3#
+							,con_to_3=#con_to_3#
+							,con_scor_3=#con_scor_3#
+							,con_from_4=#con_from_4#
+							,con_to_4=#con_to_4#
+							,con_scor_4=#con_scor_4#
+							,con_from_5=#con_from_5#
+							,con_to_5=#con_to_5#
+							,con_scor_5=#con_scor_5#
+							,updt_date=NOW()
+		WHERE sec_pol_id=#sec_pol_id# 
+    ]]>   
+    </update>
+	
+	<insert id="pol.man.setInsertPolConInfo" parameterClass="polConVO">
+	<![CDATA[
+		INSERT INTO "pol_con" (sec_pol_id
+							, con_cnt
+							, con_from_1
+							, con_to_1
+							, con_scor_1
+							, con_from_2
+							, con_to_2
+							, con_scor_2
+							, con_from_3
+							, con_to_3
+							, con_scor_3
+							, con_from_4
+							, con_to_4
+							, con_scor_4
+							, con_from_5
+							, con_to_5
+							, con_scor_5
+							, rgdt_date) 
+							VALUES
+							(#sec_pol_id#
+							,#con_cnt#
+							,#con_from_1#
+							,#con_to_1#
+							,#con_scor_1#
+							,#con_from_2#
+							,#con_to_2#
+							,#con_scor_2#
+							,#con_from_3#
+							,#con_to_3#
+							,#con_scor_3#
+							,#con_from_4#
+							,#con_to_4#
+							,#con_scor_4#
+							,#con_from_5#
+							,#con_to_5#
+							,#con_scor_5#
+							,NOW());
+	]]>	
+	</insert>
+	<!-- 지수 상세 로그 테이블 리스트 조회 -->
+	<select id="pol.man.getPolSourceLogTables" parameterClass="java.lang.String" resultClass="egovMap">
+	<![CDATA[
+		SELECT n.nspname
+		 , coalesce(c.relname, '') tablename
+		 , coalesce(obj_description(c.oid), '') tabledesc
+		FROM pg_catalog.pg_class c
+		INNER JOIN pg_catalog.pg_namespace n ON c.relnamespace=n.oid
+		WHERE c.relkind='r' AND nspname=#nspname# AND c.relname LIKE 'sldm%';
+	]]>
+	</select>
+	<!-- 지수상세 로그 테이블 컬럼 정보 조회 -->
+	<select id="pol.man.getPolSourceLogTableColumns" parameterClass="java.lang.String" resultClass="egovMap">
+	<![CDATA[
+		SELECT c.relname
+		   , c.oid
+		   , a.attname columnname
+		   , (SELECT coalesce(col_description(a.attrelid, a.attnum), '')) columndesc
+		FROM pg_catalog.pg_class c
+		INNER JOIN pg_catalog.pg_attribute a on a.attrelid=c.oid
+		WHERE c.relname=#tname#  AND a.attnum > 0 
+		AND a.attisdropped is false;
+	]]>
+	</select>
+	
+	<!-- 정책 대상  존재 여부 체크 -->
+	<select id="pol.man.polTargetInfoCheck" resultClass="int" parameterClass="polTargetInfoVO">
+ 	<![CDATA[
+ 		Select count(target_code) from pol_target_info
+ 		WHERE sec_pol_id=#sec_pol_id#
+ 		AND target_code=#targetCode#
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 정책 대상 정보 저장  -->
+ 	<insert id="pol.man.setPolTargetInfoInsert" parameterClass="polTargetInfoVO">
+ 		INSERT INTO pol_target_info(
+            sec_pol_id, 
+            target_type, 
+            target_code, 
+            rgdt_date, 
+            target_nm)
+    	VALUES (#sec_pol_id#, 
+    			#targetType#, 
+    			#targetCode#, 
+    			NOW(), 
+    			#targetNm#);
+ 	</insert>
+ 	
+ 	<!-- 정책 대상 리스트-->
+	<select id="pol.man.getPolTargetList" resultClass="polTargetInfoVO" parameterClass="java.lang.String">
+ 	<![CDATA[
+ 		Select sec_pol_id AS sec_pol_id,
+ 			case       
+			    WHEN target_type = '1' THEN '개인' 
+			    WHEN target_type = '2' THEN '조직'      
+			    WHEN target_type = '3' THEN '그룹'
+	 		end AS targetType, 
+	 		target_code AS targetCode, 
+	 		target_nm AS targetNm
+ 		from pol_target_info
+ 		WHERE sec_pol_id=#sec_pol_id#
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 그룹  상세 정보 삭제 -->
+ 	<delete id="pol.man.polTargetInfoDelete"  parameterClass="polTargetInfoVO">
+		DELETE FROM pol_target_info
+	 	WHERE sec_pol_id=#sec_pol_id#
+	 	<isNotEmpty property="targetCode">
+			AND target_code=#targetCode#;
+		</isNotEmpty>
+	</delete>
+	
+</sqlMap>

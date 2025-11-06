@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="sanct">
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="polSearchVO" type="sdiag.pol.service.PolicySearchVO"/>
+
+	<!-- 제재조치 설정정보 리스트 조회 -->
+	<select id="sanct.getSanctConfigList" resultClass="egovMap">
+	<![CDATA[
+		SELECT 
+		    C.minr_code  sanctkind
+		  , C.code_desc sanctnm
+		  , coalesce(S.sanc_scor_from, 0) scorfrom
+		  , coalesce(S.sanc_scor_to, 0) scoreto
+		  , coalesce(S.sanc_noti, '') sanctnoti
+		  , coalesce(S.sanc_sol_noti, '') sanctsolnoti
+		  , CASE WHEN coalesce(S.sanc_kind, '') = '' THEN 'N' ELSE 'Y' END issanct
+		FROM "code_info" C
+		LEFT JOIN "sanc_type" S ON C.minr_code=S.sanc_kind
+		WHERE C.majr_code='S01' AND C.minr_code <> '00' AND C.use_indc='Y'
+		ORDER BY C.minr_code;
+	]]>
+	</select>
+ 	
+	<!-- 제재조치 설정정보 조회 -->
+	<select id="sanct.getSanctConfigInfo" parameterClass="java.lang.String" resultClass="egovMap">
+	<![CDATA[
+		SELECT 
+		    C.minr_code sanctkind
+		  , C.code_desc sanctnm
+		  , coalesce(S.sanc_scor_from, 0) scorfrom
+		  , coalesce(S.sanc_scor_to, 0) scoreto
+		  , coalesce(S.sanc_noti, '') sanctnoti
+		  , coalesce(S.sanc_sol_noti, '') sanctsolnoti
+		  , CASE WHEN coalesce(S.sanc_kind, '') = '' THEN 'N' ELSE 'Y' END issanct
+		FROM "code_info" C
+		LEFT JOIN "sanc_type" S ON C.minr_code=S.sanc_kind
+		WHERE C.majr_code='S01' AND C.minr_code <> '00' AND C.minr_code=#sanctno#
+	]]>
+	</select>
+	
+	<delete id="sanct.setDeleteSanctConfig" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		DELETE FROM "sanc_type" WHERE sanc_kind=#sanctno#;
+    ]]>   
+	</delete>
+	
+	<insert id="sanct.setInsertSanctConfig" parameterClass="java.util.HashMap">
+	<![CDATA[
+		INSERT INTO "sanc_type" SELECT minr_code, code_desc, #scor_from#, #scor_to#, #sanctnoti#, now(), now(), #sanctsolnoti#
+								FROM code_info 
+								WHERE majr_code='S01' AND minr_code=#sanctno#
+	]]>	
+	</insert>
+	
+	<!-- 제재조치 일괄처리 사용안함 -->
+	<delete id="sanct.setDeleteSanctAllList" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		DELETE FROM "if_sanc_info" 
+    ]]>   
+    	<iterate prepend="WHERE" property="sanctlist" open=" sanc_id IN (" conjunction="," close=")">
+ 			#sanctlist[]#
+ 		</iterate> 
+	</delete>
+
+	<update id="sanct.setUpdatePolSanctAllList" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "nx_user_idx_info" set sanc_id= CONCAT(idx_rgdt_date, emp_no, replace(replace(mac, '-', ''), ':', ''), pol_idx_id) 
+    ]]>   
+    	<iterate prepend="WHERE" property="sanctlist" open=" CONCAT(idx_rgdt_date, emp_no, replace(replace(mac, '-', ''), ':', ''), pol_idx_id) IN (" conjunction="," close=")">
+ 			#sanctlist[]#
+ 		</iterate> 
+	</update>
+		
+	<insert id="sanct.setInsertSanctInfoAllList" parameterClass="java.util.HashMap">
+	<![CDATA[
+		INSERT INTO "if_sanc_info" (sanc_id, emp_no, mac, ipaddress, block_type, sanc_date, updt_date, notice, display, is_bother_on, is_fast_operation, is_read_indc)
+	]]>	
+	<dynamic>
+		<iterate prepend="VALUES" conjunction=", " property="sanctInfo">
+			( 
+				  #sanctInfo[].sanctid# 
+				, #sanctInfo[].empno#
+				, #sanctInfo[].mac#
+				, #sanctInfo[].ip#
+				, CAST(#sanctInfo[].sancttype# AS integer)
+				, to_char(NOW(), 'YYYYMMDD')
+				, NOW()
+				, (SELECT sanc_noti FROM "sanc_type" WHERE sanc_kind=#sanctInfo[].sancttype#)
+				, (SELECT sanc_noti FROM "sanc_type" WHERE sanc_kind=#sanctInfo[].sancttype#)
+				, true
+				, true
+				, false
+			)
+		</iterate>
+	</dynamic>
+	</insert>
+	<!-- 제재조치 일괄처리 사용안함 -->
+	
+	<!-- PC지킴이실행 / 제재처리 mac/ip 제거로 수정 
+	<delete id="sanct.setDeleteSanctInfo" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		DELETE FROM "if_sanc_info" WHERE sanc_id=#sanctid# AND emp_no=#empno# AND mac=#mac#;
+    ]]> 
+	</delete>
+	
+	<insert id="sanct.setSanctInfoInsert" parameterClass="java.util.HashMap">
+	<![CDATA[
+		INSERT INTO "if_sanc_info" (sanc_id, emp_no, mac, ipaddress, block_type, sanc_date, updt_date, notice, display, exe_para, list_pass_ip, is_bother_on, is_fast_operation, is_read_indc, screen_block_sec)
+		VALUES(#sanctid#, #empno#, #mac#, #ip#, CAST(#sancttype# AS integer), to_char(NOW(), 'YYYYMMDD'),  NOW()
+			, (SELECT sanc_noti FROM "sanc_type" WHERE sanc_kind=#sancttype#)
+			, (SELECT sanc_noti FROM "sanc_type" WHERE sanc_kind=#sancttype#)
+			, #pcgactparam#
+			, #passid#
+			, true
+			, true
+			, false
+			, #screenblock#);
+	]]>	
+	</insert>
+	-->
+	<!-- PC지킴이실행 / 제재처리-->
+	<delete id="sanct.setDeleteSanctInfo" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		DELETE FROM "if_sanc_info" WHERE sanc_id=#sanctid# AND emp_no=#empno#;
+    ]]> 
+	</delete>
+    <insert id="sanct.setSanctInfoInsert" parameterClass="java.util.HashMap">
+	<![CDATA[
+	INSERT INTO "if_sanc_info" (sanc_id, emp_no, mac, ipaddress, block_type, sanc_date, updt_date, notice, display, exe_para, list_pass_ip, is_bother_on, is_fast_operation, is_read_indc, screen_block_sec)
+	SELECT #sanctid#,
+			sldm_empno,
+			sldm_mac,
+			sldm_ip,
+			CAST(#sancttype# AS integer),
+			to_char(NOW(), 'YYYYMMDD'),
+			NOW(),
+			(SELECT sanc_noti FROM "sanc_type" WHERE sanc_kind=#sancttype#),
+			(SELECT sanc_noti FROM "sanc_type" WHERE sanc_kind=#sancttype#),
+			#pcgactparam#,
+			#passid#,
+			true,
+			true,
+			false,
+			#screenblock#	
+			FROM user_mstr
+			WHERE sldm_empno=#empno#
+	]]>	
+	</insert>
+	<update id="sanct.setUpdateUserIdxInfoScancId" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "nx_user_idx_info" 
+	]]>	
+	<isEqual prepend="SET" property="mode" compareValue="P">
+	<![CDATA[
+		pcg_act_id=#sanctid# 
+	]]>	
+	</isEqual>
+	<isEqual prepend="SET" property="mode" compareValue="S">
+	<![CDATA[
+		sanc_id=#sanctid# 
+	]]>	
+	</isEqual>	
+	<![CDATA[	
+		WHERE idx_rgdt_date=#rgdtdate# AND emp_no=#empno# AND mac=#mac# AND ip=#ip# AND pol_idx_id=#polidxid#;
+    ]]>   
+    </update>
+	<!--  PC지킴이실행 / 제재처리  -->
+	
+	<!-- 소명처리 -->
+ 	<insert id="sanct.setApprInfoInsert" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		INSERT INTO "if_appr_info" (appr_id, emp_no, appr_line_code, appr_stat_code, rgdt_date)
+		VALUES (#apprid#, #empno#, #apprlinecode#, '01', NOW());
+    ]]>   
+  </insert>
+  <update id="sanct.setUpdateUserIdxInfoApprId" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "nx_user_idx_info" 
+		SET appr_id=#apprid# 
+		WHERE idx_rgdt_date=#rgdtdate# AND emp_no=#empno# AND pol_idx_id=#polidxid#;
+    ]]>   
+    </update>
+	<!-- 소명처리 수정
+	<update id="sanct.setUpdateUserIdxInfoApprId" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "nx_user_idx_info" 
+		SET appr_id=#apprid# 
+		WHERE idx_rgdt_date=#rgdtdate# AND emp_no=#empno# AND mac=#mac# AND ip=#ip# AND pol_idx_id=#polidxid#;
+    ]]>   
+    </update>
+	 -->
+	
+	
+	<!-- BPM처리 실패시 소명정보 롤백 -->
+	<update id="sanct.setUpdateUserIdxInfoApprIdDelete" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		UPDATE "nx_user_idx_info" 
+		SET appr_id='' 
+		WHERE appr_id=#apprid# AND emp_no=#empno#;
+    ]]>   
+    </update>
+    <delete id="sanct.setApprInfoDelete" parameterClass="java.util.HashMap" >
+ 	<![CDATA[
+		DELETE FROM "if_appr_info" WHERE appr_id=#apprid# AND emp_no=#empno#;
+    ]]>   
+    </delete>
+	<!-- 소명처리 끝-->
+	
+	<!-- PC지킴이 조치 파라메터 정보 조회 -->
+	<select id="sanct.getPcgActParamInfo" parameterClass="java.lang.String" resultClass="java.lang.String">
+	<![CDATA[
+		SELECT minor_nm 
+		FROM "pcg_vid"
+		WHERE minor_cd=#pcgactparam# 
+	]]>
+	</select>
+	
+	<!-- 제재처리를 위한 소명코드조회 -->
+	<select id="sanct.getApprCodeInfo" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+	<![CDATA[
+		SELECT coalesce(appr_id, '') apprid
+		FROM "nx_user_idx_info"
+		WHERE idx_rgdt_date=#rgdtdate# AND emp_no=#empno# AND pol_idx_id=#polidxid# AND mac=#mac# AND ip=#ip#;
+	]]>
+	</select>
+	
+</sqlMap>

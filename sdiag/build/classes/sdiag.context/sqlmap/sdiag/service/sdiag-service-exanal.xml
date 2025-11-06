@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="exanal">
+
+	<typeAlias alias="PolVO" type="sdiag.exanal.service.PolVO" />
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<!-- 
+	<select id="PolManageDAO.createPolTable" parameterClass="PolVO" resultClass="egovMap">
+ 	<![CDATA[
+		CREATE TABLE IF NOT EXISTS $genTableName$
+		(
+			$columnDescription$
+		);
+		
+		CREATE INDEX $genTableName$_idx1
+		  ON $genTableName$
+		  (sldm_empno, sldm_ip, sldm_mac, sldm_org_logdate); 		
+ 	]]>
+ 	</select>
+ 	
+	<select id="PolManageDAO.createPolTable_diag" parameterClass="PolVO" resultClass="egovMap">
+ 	<![CDATA[
+		CREATE TABLE IF NOT EXISTS $genTableName_diag$
+		(
+			$columnDescription_diag$
+		);
+		
+		CREATE INDEX $genTableName_diag$_idx1
+		  ON $genTableName_diag$
+		  (sldm_empno, sldm_ip, sldm_mac, sldm_org_logdate, sldm_explan_flag, sldm_extract_value); 
+		  
+
+		CREATE INDEX $genTableName_diag$_idx2
+		  ON $genTableName_diag$
+		  (sldm_policy_id); 
+		  
+		CREATE INDEX $genTableName_diag$_idx3
+		  ON $genTableName_diag$
+		  (sldm_org_logdate); 		  		  
+	  		
+ 	]]>
+ 	</select> 		
+ 	-->
+ 	<!-- 
+	<insert id="PolManageDAO.insertPolList" parameterClass="PolVO">
+ 	<![CDATA[
+		INSERT INTO $genTableName$
+		(
+			$columnList$
+		) VALUES (
+			$valueList$
+		)
+ 	]]>
+ 	</insert>
+  	 -->
+	<insert id="PolManageDAO.insertPolTableInfo" parameterClass="PolVO">
+
+	<selectKey resultClass="int" keyProperty="sn">
+		SELECT  coalesce(MAX(SN)+1, 1) AS sn
+		FROM  "_HANDY_TABLE_INFO"
+	</selectKey>
+	
+ 	<![CDATA[
+		INSERT INTO "_HANDY_TABLE_INFO"
+		(
+			sn, pol_id, table_name, column_list, upload_date, idx_used, orgfile_name, gubun
+		) VALUES (
+			   #sn#
+			,  'A01'
+			,  #genTableName#
+			,  #columnList#
+			,  CURRENT_DATE
+			,  'Y'
+			, #orgfile_name#
+			, #gubun#
+		)
+ 	]]>
+ 	</insert> 	
+ 	<!-- 
+ 	<select id="PolManageDAO.selectPolList"  parameterClass="PolVO" resultClass="egovMap" remapResults="true">
+ 	<![CDATA[
+		SELECT * FROM $table_name$ 
+		WHERE 1=1 
+ 	]]>
+ 		<isNotEmpty prepend="AND" property="begin_date">	
+			   <![CDATA[ to_char(sldm_org_logdate, 'YYYYMMDD') = #begin_date#  ]]> 
+		</isNotEmpty> 
+		<![CDATA[
+		ORDER BY sldm_org_logdate desc 	
+		LIMIT #recordCountPerPage# OFFSET #firstIndex# 
+		]]>
+ 	</select>
+ 	 -->
+ 	 <!-- 
+ 	<select id="PolManageDAO.selectPolListNov"  parameterClass="PolVO"	resultClass="PolVO">
+ 	<![CDATA[
+		SELECT * FROM $table_name$ LIMIT 50 
+ 	]]>
+ 	</select> 	
+ 	 -->
+ 	<select id="PolManageDAO.selectFileName" parameterClass="java.lang.Integer" resultClass="PolVO">
+ 	<![CDATA[
+		SELECT 
+			   ORGFILE_NAME
+			,  POL_ID
+			,  FILE_NAME
+			,  IDX_USED 
+			,  TABLE_NAME
+		FROM "_HANDY_TABLE_INFO"
+		WHERE sn = #sn#
+ 	]]>
+ 	</select> 	
+ 	<!-- 
+ 	<select id="PolManageDAO.selectPolListTotCnt" parameterClass="PolVO" resultClass="int">
+ 	<![CDATA[
+		SELECT COUNT(*) COUNT FROM $table_name$
+ 	]]>
+ 	</select>
+ 	 -->
+ 	<select id="PolManageDAO.getCountTableName" parameterClass="PolVO" resultClass="int">
+ 	<![CDATA[
+		SELECT COUNT(*) COUNT
+		FROM information_schema.tables
+		WHERE table_schema='public'
+		AND table_name=#table_name#
+ 	]]>
+ 	</select> 	
+ 	
+ 	
+ 	<select id="PolManageDAO.selectTableList" parameterClass="PolVO" resultClass="PolVO">
+ 	<![CDATA[
+		SELECT SN
+			,  POL_ID
+			,  TABLE_NAME
+			,  FILE_NAME
+		FROM "_HANDY_TABLE_INFO"
+		WHERE IDX_USED = 'Y'
+		ORDER BY SN, POL_ID, UPLOAD_DATE
+ 	]]>
+ 	</select>
+ 	<!-- 
+ 	<select id="PolManageDAO.getColumnList"  parameterClass="PolVO"	resultClass="egovMap">
+ 	<![CDATA[
+		SELECT column_name as columnname
+		FROM information_schema.columns
+		WHERE 
+		table_name ILIKE '$table_name$'	
+ 	]]>
+ 	</select>
+ 	 -->
+	<select id="multipledb1" resultClass="int"> 
+	<![CDATA[ 
+		SELECT COUNT(*) FROM nx_org_group 
+	]]>
+	 </select>
+	 
+	 <select id="multipledb2" resultClass="int">
+	<![CDATA[ 
+		SELECT COUNT(*) FROM nx_org_user 
+	]]>
+	 </select> 
+
+ 	<select id="PolManageDAO.selectUsermstr" parameterClass="java.lang.String" resultClass="PolVO">
+ 	<![CDATA[
+		SELECT 
+			   sldm_empno emp_no
+			,  sldm_mac
+			,  sldm_ip
+		FROM user_mstr
+		where sldm_empno = #emp_no#
+		LIMIT 1
+ 	]]>
+ 	</select>
+ 	<!-- 
+	<select id="PolManageDAO.deleteTable" parameterClass="PolVO" resultClass="egovMap">
+ 	<![CDATA[		
+		DROP TABLE $table_name$;
+		
+		DELETE FROM "_HANDY_TABLE_INFO"
+		WHERE sn = #sqno#
+		AND table_name = #table_name#;		
+ 	]]>
+ 	</select> 
+ 	 -->
+ 	 <!-- 
+ 	<select id="PolManageDAO.deleteTable_diag" parameterClass="PolVO" resultClass="egovMap">
+ 	<![CDATA[		
+		DROP TABLE $table_name_diag$;
+		
+		DELETE FROM "_HANDY_TABLE_INFO"
+		WHERE sn = #sqno#
+		AND table_name = #table_name#;		
+ 	]]>
+ 	</select>  
+ 	-->
+ 	<!-- 
+ 	<select id="PolManageDAO.deleteRecode"  parameterClass="PolVO" resultClass="egovMap" remapResults="true">
+ 	<![CDATA[
+		delete FROM $table_name$ 
+		WHERE 1=1 
+ 	]]>
+ 		<isNotEmpty prepend="AND" property="begin_date">	
+			   <![CDATA[ to_char(sldm_org_logdate, 'YYYYMMDD') = #begin_date#  ]]> 
+		</isNotEmpty>
+ 	</select>
+ 	-->
+ 	<!-- 
+ 	<select id="PolManageDAO.updateSelectUsermstr" parameterClass="PolVO" resultClass="PolVO">
+ 	<![CDATA[
+		with t as (
+			select   
+				U.sldm_empno as sldm_empno, 
+				U.sldm_ip as sldm_ip,
+				U.sldm_mac as sldm_mac
+			from user_mstr U
+			left join $genTableName$ S on S.empno = U.sldm_empno	
+		)	
+		update $genTableName$ 
+			set sldm_empno = t.sldm_empno, sldm_ip = t.sldm_ip, sldm_mac = t.sldm_mac
+		from t
+		where empno = t.sldm_empno
+ 	]]>
+ 	</select> 
+ 	-->
+ 	<select id="PolManageDAO.getGubunInfo" parameterClass="String" resultClass="String">
+ 	<![CDATA[
+		SELECT 
+			   gubun
+		FROM "_HANDY_TABLE_INFO"
+		WHERE table_name = #table_name#
+ 	]]>
+ 	</select> 	
+</sqlMap>

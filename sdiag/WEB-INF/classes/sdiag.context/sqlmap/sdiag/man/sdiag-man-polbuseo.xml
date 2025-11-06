@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="pol.service">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="polSearchVO" type="sdiag.pol.service.PolicySearchVO"/>
+	<typeAlias alias="polConVO" type="sdiag.man.service.PolConVO" />
+	
+	<!-- 부서진단 - 지수정책 모니터링  -->
+ 	
+ </sqlMap>	

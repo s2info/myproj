@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="userMain">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="noticeVO" type="sdiag.board.service.NoticeVO"/>
+	<typeAlias alias="userIdxInfo" type="sdiag.main.service.UserMainIdxInfoVO"/>
+	<typeAlias alias="userPolIdxInfo" type="sdiag.main.service.UserPolIdxInfoVO"/>
+	<typeAlias alias="searchVO" type="sdiag.man.service.SearchVO"/>
+	<typeAlias alias="sdResultInfo" type="sdiag.securityDay.service.SdResultInfoVO"/>
+	 
+	
+	
+	<!-- 공지사항 LIST -->
+	<select id="userMain.getNoticeList" parameterClass="searchVO" resultClass="noticeVO" >
+ 	<![CDATA[
+ 		SELECT 
+			N.sq_no,
+  			N.n_type,
+  			N.contents,
+  			N.title,
+  			N.read_cnt,
+  			N.status_cd,
+  			to_char(N.upd_date, 'YYYY-MM-DD') upd_date,
+  			N.is_popup,
+  			U.emp_nm upd_user
+		FROM "notice_info" N
+		LEFT JOIN "nx_org_user" U ON N.upd_user=U.emp_no
+		WHERE n_type='0000'
+		
+ 	]]>
+ 	<isNotEmpty prepend="AND"  property="searchKeyword">
+ 	N.is_popup = #searchKeyword#
+	</isNotEmpty>
+				order by upd_date desc
+ 	<isNotEmpty property="sq_no">
+		<isNotEqual property="sq_no" compareValue="0">
+		LIMIT #sq_no#
+		</isNotEqual>
+	</isNotEmpty>
+				
+				
+ 	</select>
+ 	
+ 	<select id="userMain.getFaqList" resultClass="noticeVO">
+ 	<![CDATA[
+ 		SELECT 
+			N.sq_no,
+  			N.n_type,
+  			N.contents,
+  			N.title,
+  			N.read_cnt,
+  			N.status_cd,
+  			to_char(N.upd_date, 'YYYY-MM-DD') upd_date,
+  			N.is_popup,
+  			U.emp_nm upd_user
+		FROM "notice_info" N
+		LEFT JOIN "nx_org_user" U ON N.upd_user=U.emp_no
+		WHERE n_type = '0001'
+		order by upd_date desc
+		LIMIT 3;
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 사용자, 사용자 팀, 사용자 상위 팀 보안 점수 조회  -->
+	<select id="userMain.getUserIdxInfo" resultClass="userIdxInfo" parameterClass="java.lang.String">
+ 	<![CDATA[
+ 		WITH userIdx(rgdt_date, emp_no, scor_curr, score)AS
+		(
+			SELECT idx_rgdt_date, emp_no, coalesce(trunc(ROUND(avg(d.scor_curr), 3)), 0), coalesce(trunc(ROUND(avg(d.score), 3)), 0) 
+			FROM nx_user_idx_info_day d
+			WHERE d.idx_rgdt_date = to_char(current_date-1, 'YYYYMMDD')
+			AND d.emp_no =#userId#
+			GROUP BY d.idx_rgdt_date, d.emp_no
+		)SELECT L.rgdt_date, L.emp_no, L.scor_curr, L.score,
+				substr(L.rgdt_date,1,4) year_val, substr(L.rgdt_date,5,2) month_val, substr(L.rgdt_date,7,2) day_val,
+				U.emp_nm, U.email,
+				UORG.org_code u_org_code, UORG.org_nm u_org_nm, UORG.tot_emp u_tot_emp, UORG.avg u_avg, 
+				UPORG.org_code upper_org_code, UPORG.org_nm upper_org_nm, UPORG.tot_emp upper_org_tot_emp, UPORG.avg upper_avg
+		FROM userIdx L
+		INNER JOIN nx_org_user U ON U.emp_no=L.emp_no
+		LEFT JOIN nx_total_sum_info UORG ON UORG.org_code=U.org_code AND UORG.sum_rgdt_date=L.rgdt_date
+		LEFT JOIN nx_total_sum_info UPORG ON UPORG.org_code=(SELECT CASE WHEN upper_org_code = '000000' THEN '000001' ELSE  coalesce(upper_org_code, '000001') END FROM nx_org_group WHERE org_code=U.org_code) AND UPORG.sum_rgdt_date=L.rgdt_date
+		WHERE U.stat='1'
+		
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 사용자 정책별 점수  -->
+	<select id="userMain.getUserPolIdxInfoList" resultClass="userPolIdxInfo" parameterClass="java.lang.String">
+ 	<![CDATA[
+		SELECT 
+			p.sec_pol_id, p.sec_sol_id, p.sec_pol_desc, i.idx_rgdt_date, coalesce(p.reason, '') reason, coalesce(p.sec_pol_notice_detail, '')  as detail, 
+			i.emp_no,i.mac, i.pol_idx_id, i.ip, coalesce(i.appr_id, ''),
+			coalesce(i.score, 100) score,
+			coalesce(i.count, 0) count,
+			CASE WHEN coalesce(i.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN 'GOOD' ELSE
+				CASE WHEN coalesce(i.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(i.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN 'WARING' ELSE 'WEAK'
+				END 
+			END critical,
+			coalesce(to_char(i.rgdt_date, 'YYYY-MM-DD'), '미탐지') rgdt_date,
+			coalesce(to_char(i.org_eventdate, 'YYYY-MM-DD'), '미탐지') org_eventdate
+		FROM pol_idx p
+		LEFT JOIN nx_user_idx_info i ON i.pol_idx_id=p.sec_pol_id AND i.idx_rgdt_date= to_char(current_date-1, 'YYYYMMDD') AND i.emp_no=#userId#
+		WHERE p.use_indc = 'Y'
+		ORDER BY p.ordr;
+
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 사용자 정책별 점수  -->
+	<select id="userMain.getUserPolIdxInfo" resultClass="userPolIdxInfo" parameterClass="userPolIdxInfo">
+ 	<![CDATA[
+		SELECT 
+			p.sec_pol_id, p.sec_sol_id, p.sec_pol_desc, i.idx_rgdt_date, coalesce(p.reason, '') reason, coalesce(p.sec_pol_notice_detail, '')  as detail, 
+			i.emp_no,i.mac, i.pol_idx_id, i.ip, coalesce(i.appr_id, ''),
+			coalesce(i.score, 100) score,
+			coalesce(i.count, 0) count,
+			CASE WHEN coalesce(i.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN 'GOOD' ELSE
+				CASE WHEN coalesce(i.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(i.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN 'WARING' ELSE 'WEAK'
+				END 
+			END critical,
+			coalesce(to_char(i.rgdt_date, 'YYYY-MM-DD'), '미탐지') rgdt_date,
+			coalesce(to_char(i.org_eventdate, 'YYYY-MM-DD'), '미탐지') org_eventdate
+		FROM pol_idx p
+		LEFT JOIN nx_user_idx_info i ON i.pol_idx_id=p.sec_pol_id AND i.idx_rgdt_date= to_char(current_date-1, 'YYYYMMDD') AND i.emp_no=#emp_no#
+		WHERE p.use_indc = 'Y'
+		AND p.sec_pol_id=#sec_pol_id#
+
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 전사 평균  -->
+	<select id="userMain.getTotalAvg" resultClass="userIdxInfo">
+ 	<![CDATA[
+		 SELECT
+			org_code,
+			org_nm,
+			avg score     
+    	FROM
+        	nx_total_sum_info    
+    	WHERE
+        	org_code= '000001'    
+        	AND sum_rgdt_date in (select  to_char((current_date - 1),'YYYYMMDD'));
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 사용자, 사용자 팀, 사용자 상위 팀 보안 점수 조회  -->
+	<select id="userMain.getSdResultInfo" resultClass="sdResultInfo" parameterClass="java.lang.String">
+ 	<![CDATA[
+		SELECT A.empNo,
+		       A.clGroupNo,
+		       A.clGroupNm,
+		       A.questionNum,
+		       A.ordr,		       
+		       B.answer,
+		       to_char(B.check_date,'YYYY-mm-dd') AS checkDate,
+		       CASE
+		       	WHEN coalesce(to_char(B.check_date,'YYYYmmdd'), '') = '' THEN '미 시행'
+			    ELSE '완료'
+			   END resultYn		        
+		FROM (
+			SELECT           
+				t1.sd_check_no AS sdCheckNo ,
+				t1.cl_group_no AS clGroupNo,
+				t4.cl_group_nm AS clGroupNm,
+				t1.emp_no AS empNo,
+				t2.question_num AS questionNum,
+				t2.answer_type AS answerType,
+				coalesce(t2.question,
+				'') AS question,
+				t2.answer AS answer,
+				t2.explain AS explain,
+				coalesce(t2.file_yn,
+				'N') AS fileYn,
+				coalesce(t2.file_text,
+				'') AS fileText,
+				to_char(to_date(t4.check_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkStartDay, 
+				to_char(to_date(t4.check_end_day, 'YYYYmmdd'), 'YYYY-mm-dd') checkEndDay ,
+				to_char(to_date(t4.idx_start_day, 'YYYYmmdd'), 'YYYY-mm-dd') idxStartDay,
+				t2.ordr AS ordr	        
+			FROM
+				sd_target_master t1 ,
+				sd_question_info t2,
+				sd_checklist_info t3,
+				sd_checklist_group t4        
+			WHERE
+			to_char(NOW(), 'YYYYmmdd') between t4.idx_start_day and t4.idx_end_day  
+				AND t4.cl_group_no = t1.cl_group_no
+				AND t1.sd_check_no = t2.sd_check_no   
+				AND t2.sd_check_no = t3.sd_check_no
+				AND t1.emp_no =  #empNo#
+				AND t2.question_num is not null
+				order by t2.ordr
+		) AS A
+		LEFT OUTER JOIN sd_result_detail_info B
+		on A.clGroupNo = B.cl_group_no
+		AND A.empNo = B.emp_no 	
+		AND A.questionNum = B.question_num		
+			
+		
+ 	]]>
+ 	</select>
+ 	
+ 	
+</sqlMap>

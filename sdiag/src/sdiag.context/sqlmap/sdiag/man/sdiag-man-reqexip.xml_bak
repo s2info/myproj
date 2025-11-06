@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="reqExIpInfo">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="reqExIpInfoVO" type="sdiag.exception.service.ReqExIpInfoVO"/>
+	<typeAlias alias="reqSearchVO" type="sdiag.exception.service.ReqSearchVO"/>
+	<typeAlias alias="reqExIpPolicyInfoVO" type="sdiag.exception.service.ReqExIpPolicyInfoVO"/>
+	 
+	
+	<!-- 예외 신청 IP LIST -->
+	<select id="reqExIpInfo.getReqExIpInfoList" resultClass="reqExIpInfoVO" parameterClass="reqSearchVO">
+ 	<![CDATA[
+ 		SELECT
+ 			req_seq AS reqSeq,
+ 			rgdt_emp_no AS rgdtEmpNo, 
+ 			(select emp_nm from nx_org_user where emp_no = rgdt_emp_no) AS rgdtEmpNm, 
+	 		ex_info, 
+	 		subject AS subject,
+	 		updt_emp_no AS updtEmpNo, 
+ 			(select emp_nm from nx_org_user where emp_no = updt_emp_no) AS updtEmpNm
+	       TO_CHAR(rgdt_date, 'YYYY-mm-dd') rgdtDate,
+	       TO_CHAR(updt_date, 'YYYY-mm-dd') updtDate
+  		FROM ex_info
+  		WHERE 1=1
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+			<isEqual property="searchCondition" compareValue="2">
+				AND ex_info LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>
+			<isEqual property="searchCondition" compareValue="1">
+				AND subject =#searchKeyword#
+			</isEqual>
+		</isNotEmpty>
+ 	ORDER BY updt_date desc
+ 	LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+ 	</select>
+ 	
+ 	<!-- 예외 신청 IP 총 갯수 -->
+	<select id="reqExIpInfo.getReqExIpInfoListTotalCount" resultClass="int" parameterClass="reqSearchVO">
+ 	<![CDATA[
+ 		Select count(req_emp_no) from req_ex_ip_info
+ 		WHERE 1=1
+ 	]]>
+ 	<isNotEmpty property="searchKeyword">
+			<isEqual property="searchCondition" compareValue="2">
+				AND ex_info LIKE CONCAT('%',#searchKeyword#,'%')
+			</isEqual>
+			<isEqual property="searchCondition" compareValue="1">
+				AND subject =#searchKeyword#
+			</isEqual>
+		</isNotEmpty>
+ 	</select>
+ 	
+ 	
+ 	<!-- 점검표 seq 정보 -->
+ 	<select id="reqExIpInfo.getReqSeqInfo" resultClass="int">
+ 	<![CDATA[
+ 		SELECT coalesce(MAX(req_seq), 0) + 1 nseq FROM "req_ex_ip_info";
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 예외 신청 IP 정보 저장 -->
+	<insert id="reqExIpInfo.reqExIpInfoSave" parameterClass="reqExIpInfoVO" >
+ 		INSERT INTO req_ex_ip_info(
+ 			req_seq,
+            req_emp_no,
+            req_emp_nm,
+            app_yn,
+            rgdt_date,
+            ex_days,
+            ex_start_date,
+            ex_end_date,
+            reason,
+            itms_id,
+            ip         
+            )
+    	VALUES (#reqSeq#, #reqEmpNo#, #reqEmpNm#, 'N', NOW(),
+    	        #exDays#,
+    	        #exStartDate#,
+    	        <isNotEqual property="exDays" compareValue="99">
+				<![CDATA[
+				to_char(to_date(#exStartDate#,'YYYYmmdd')+#intExDays#,'YYYYmmdd'),
+				]]>
+				</isNotEqual>
+				<isEqual property="exDays" compareValue="99">
+				<![CDATA[
+				'',
+				]]>
+				</isEqual>
+			#reason#,
+			#itmsId#,
+			#ip#			
+			);
+
+ 	</insert>
+ 	
+ 	<!-- 예외 신청 IP 정보 저장 -->
+	<update id="reqExIpInfo.reqExIpInfoUpdate" parameterClass="reqExIpInfoVO" >
+ 	<![CDATA[
+ 		UPDATE req_ex_ip_info
+		   SET 
+		   ip=#ip#, 
+		   itms_id=#itmsId#, 
+		   reason=#reason#, 
+			rgdt_date=NOW(),
+			req_emp_nm=#reqEmpNm#
+		 WHERE req_emp_no=#reqEmpNo#;
+
+ 	]]>
+ 	</update>
+ 	
+ 	<!-- 예외 신청 IP 정보 조회 -->
+	<select id="reqExIpInfo.getReqExIpInfo" parameterClass="reqExIpInfoVO" resultClass="reqExIpInfoVO">
+ 	<![CDATA[
+ 		SELECT
+ 			req_seq AS reqSeq,
+			req_emp_no AS reqEmpNo, 
+ 			req_emp_nm AS reqEmpNm, 
+	 		coalesce(ip, '') ip, 
+	 		app_emp_no AS appEmpNo,
+	 		itms_id AS itmsId, 
+	 		reason, 
+	 		app_yn AS app, 
+	 		case       
+			    WHEN app_yn = 'Y' THEN '승인 완료'       
+			    else '미승인'      
+			end as appYn,
+	 		TO_CHAR(app_date, 'YYYY-mm-dd') appDate, 
+	 		TO_CHAR(to_date(ex_start_date,'YYYYmmdd'), 'YYYY-mm-dd') exStartDate,
+	 		case       
+			    WHEN ex_end_date = '' THEN '무제한'       
+			    else TO_CHAR(to_date(ex_end_date,'YYYYmmdd'), 'YYYY-mm-dd')     
+			end as exEndDate,
+	 		ex_days As exDays,
+	       TO_CHAR(rgdt_date, 'YYYY-mm-dd') rgdtDate
+		FROM req_ex_ip_info
+		WHERE req_seq = #reqSeq#
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 예외 신청 IP 삭제 -->
+ 	<delete id="reqExIpInfo.reqExIpInfoDelete" parameterClass="reqExIpInfoVO" >
+ 	<![CDATA[
+ 		DELETE
+		FROM "req_ex_ip_info"
+		WHERE req_seq = #reqSeq#;
+ 	]]>
+ 	
+ 	</delete>
+ 	
+ 	
+ 	
+ 	<!-- 예외 신청 IP 정보 저장 -->
+	<update id="reqExIpInfo.setReqExIpInfoUpdate" parameterClass="reqExIpInfoVO" >
+ 		UPDATE req_ex_ip_info
+			SET 
+			ip=#ip#,
+			ex_days = #exDays#,
+			ex_start_date = #exStartDate#,
+			<isNotEqual property="exDays" compareValue="99">
+			<![CDATA[
+			ex_end_date = to_char(to_date(#exStartDate#,'YYYYmmdd')+#intExDays#,'YYYYmmdd'),
+			]]>
+			</isNotEqual>
+			<isEqual property="exDays" compareValue="99">
+			<![CDATA[
+			ex_end_date = '',
+			]]>
+			</isEqual>
+			itms_id=#itmsId#, 
+			reason=#reason#, 
+			rgdt_date=NOW(),
+			req_emp_nm=#reqEmpNm#
+		 WHERE req_emp_no=#reqEmpNo#
+		 and req_seq = #reqSeq#;
+
+ 	</update>
+ 	
+ 	
+ 	<!--예외 신청 IP 정책 리스트 삭제 -->
+ 	<delete id="reqExIpInfo.setReqExIpPolicyDelete" parameterClass="java.lang.Long">
+	<![CDATA[
+		DELETE FROM req_ex_ip_pol_info WHERE req_seq = #reqSeq#;
+		]]>
+	</delete>
+	<!-- 예외 신청 IP 대상 리스트 저장 -->
+	<insert id="reqExIpInfo.setMailSendPolicyInsert"  parameterClass="reqExIpInfoVO">
+	<![CDATA[
+		INSERT INTO req_ex_ip_pol_info
+		(
+			req_seq
+		  , sec_pol_id
+		  , rgdt_date
+		)
+	]]>
+	<dynamic>
+		<iterate prepend="VALUES" conjunction=", " property="reqPolicyList">
+			( 
+				#reqSeq#
+				, #reqPolicyList[].sec_pol_id#
+				, NOW()
+			)
+		</iterate>
+	</dynamic>
+	</insert>
+	
+	<!-- 예외 신청 IP 유효성 검사 -->
+	<select id="reqExIpInfo.empNoCheck" resultClass="int" parameterClass="reqExIpInfoVO">
+ 	<![CDATA[
+ 		Select count(req_emp_no) 
+ 		from req_ex_ip_info
+ 		WHERE req_emp_no = #reqEmpNo#
+ 		and req_seq = #reqSeq#
+ 		and app_yn ='N'
+ 	]]>
+ 	</select>
+	
+	
+	<!-- 예외 신청자 정보 조회 -->
+	<select id="reqExIpInfo.getReqUserInfo" resultClass="reqExIpInfoVO" parameterClass="reqExIpInfoVO">
+ 	<![CDATA[
+ 		Select a.req_emp_no, b.emp_nm AS reqEmpNm , coalesce(a.ip, '') AS ip
+ 		from req_ex_ip_info a , nx_org_user b
+ 		WHERE req_emp_no = #reqEmpNo#
+ 		and req_seq = #reqSeq#
+ 		and a.req_emp_no = b.emp_no
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 메일 발송 정책 리스트 조회 -->
+	<select id="reqExIpInfo.getReqExIpPolicyList" parameterClass="reqExIpInfoVO"  resultClass="reqExIpPolicyInfoVO">
+ 	<![CDATA[
+ 		SELECT	P.sec_pol_id
+		 	,P.diag_majr_code majcode
+			,D1.diag_desc majdesc
+			,P.diag_minr_code mincode
+			,D2.diag_desc mindesc
+	    	,P.sec_pol_desc policyname
+	    	,to_char(rp.rgdt_date, 'YYYY-MM-DD HH24:MI:SS') rgdt_date
+	    	,CASE WheN coalesce(rp.sec_pol_id, '') <> '' THEN 'Y' ELSE 'N' END is_selected
+		FROM pol_idx P
+		LEFT JOIN diag_item_code D1 ON P.diag_majr_code=D1.diag_majr_code AND D1.diag_majr_code=D1.diag_minr_code
+		LEFT JOIN diag_item_code D2 ON P.diag_majr_code=D2.diag_majr_code AND P.diag_minr_code=D2.diag_minr_code
+		LEFT JOIN req_ex_ip_pol_info rp ON rp.sec_pol_id = P.sec_pol_id AND rp.req_seq=#reqSeq#
+		WHERE P.use_indc='Y' 
+		ORDER BY P.diag_majr_code, P.diag_minr_code , P.sec_pol_id;
+ 	]]>
+ 	</select>
+	
+	
+	<!-- 예외 신청 IP 정보 저장 -->
+	<update id="reqExIpInfo.reqExIpAppUpdate" parameterClass="reqExIpInfoVO" >
+ 	<![CDATA[
+ 		UPDATE req_ex_ip_info
+		   SET 
+		   app_yn='Y', 
+			app_date=NOW()
+		 WHERE req_seq = #reqSeq#;
+
+ 	]]>
+ 	</update>
+ 	
+ 	<!-- 메일 발송 정책 리스트 조회 -->
+	<select id="reqExIpInfo.getAppEmail" parameterClass="String"  resultClass="String">
+ 	<![CDATA[
+ 		SELECT	email
+		FROM nx_org_user
+		WHERE emp_no = #empNo#;
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 예외처리 IP 정보 저장 -->
+	<insert id="reqExIpInfo.exceptionIpSave" parameterClass="reqExIpInfoVO" >
+ 	<![CDATA[
+ 		INSERT INTO "exception_ip" (sec_pol_id
+ 								, ip
+ 								, rgdt_date
+ 								, gubun)
+ 								VALUES
+ 								(#secPolId# 
+ 								,#ip#
+ 								,NOW()
+ 								,'R'
+ 								);
+ 	]]>
+ 	</insert>
+ 	
+ 	<!-- 아이피 중복 체크 -->
+	<select id="reqExIpInfo.exceptionIpCnt" parameterClass="reqExIpInfoVO" resultClass="int">
+ 	<![CDATA[
+ 		SELECT
+			COUNT(sec_pol_id)
+		FROM "exception_ip" 
+		WHERE sec_pol_id = #secPolId#
+		AND gubun = 'R'
+		AND ip = #ip#;
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 예외처리 IP 정보 삭제 -->
+	<insert id="reqExIpInfo.exceptionIpDelete" parameterClass="reqExIpInfoVO" >
+ 	<![CDATA[
+ 		DELETE FROM "exception_ip" 
+ 		WHERE sec_pol_id =#secPolId# 
+ 		AND ip = #ip#
+ 	]]>
+ 	</insert>
+</sqlMap>

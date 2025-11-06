@@ -1,0 +1,1671 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="dash">
+
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="userIdxInfoCurrVO" type="sdiag.dash.service.UserIdxInfoCurrVO" />	
+	<typeAlias alias="UserManageVO" type="sdiag.login.service.UserManageVO" />
+	<typeAlias alias="dashSearchVO" type="sdiag.dash.service.DashboardSearchVO" />
+
+	<!-- 직원정보 조회 : 팀명 -->
+	<select id="dashboard.getUserInfoOrg" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		SELECT 
+			U.EMP_NO,
+	        coalesce(G.ORG_NM, '') ORG_NM,
+	        coalesce(U.EMP_NM, '') EMP_NM,
+	        coalesce(U.TITLE_CODE, '') TITLE_CODE,
+	        coalesce(U.TITLE_NM, '') TITLE_NM,
+	        coalesce(U.ORG_CODE, '') ORG_CODE,
+	        coalesce(U.level_nm, '') level_nm
+		FROM "nx_org_group" G, "nx_org_user" U
+		WHERE G.ORG_CODE = U.ORG_CODE
+				AND U.EMP_NO = #emp_no# 
+ 	]]>
+ 	</select>
+
+	<!-- V2.0 직원정보 조회 : 팀명/조직/직책 -->
+	<select id="dashboard.getUserInfo" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[	
+		SELECT 
+			U.emp_no, 
+			coalesce(U.emp_nm, '') emp_nm, 
+			coalesce(U.posn_nm, '') posn_nm, 
+			coalesce(U.title_nm, '') title_nm, 
+			coalesce(U.level_nm, '') level_nm, 
+			coalesce(G.org_code, '') under_code, 
+			(coalesce(G.org_cap_no,'99')) lv, 
+			coalesce(G.upper_org_code, '') upper_org_code, 
+			coalesce(G.org_level, '') org_level, 
+			coalesce(G.org_nm, '') org_nm 
+		FROM nx_org_user U
+		LEFT JOIN nx_org_group G on G.org_cap_no=U.emp_no
+		WHERE emp_no=#emp_no#
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	<!-- 현재 지수점수 정보 조회 : 개인-->
+ 	<select id="dashboard.getUserIdxInfoCurrScore" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[	
+		select 
+			trunc(round(avg(coalesce(I.score, 100)), 3)) score , 
+			H.org_code_4 org_code, count(*) count
+		from "nx_user_idx_info_day" I  
+		LEFT JOIN "nx_org_user_hier" H ON H.emp_no=I.emp_no 
+		where H.emp_no = #emp_no#
+        AND I.idx_rgdt_date in (
+            select
+                max(idx_rgdt_date)                
+            from
+                nx_user_idx_info               
+            where
+                to_date(idx_rgdt_date, 'YYYYMMDD') < current_date            
+        )   
+		group by H.org_code_4 					
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 현재 지수점수 정보 조회 : 팀-->
+ 	<select id="dashboard.getUserIdxInfoCurrScoreTeam" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		select 
+			trunc(round(avg(coalesce(IC.score, 100)), 3)) score , 
+			H.org_code_4 org_code
+		from "nx_org_user_hier" H
+		LEFT JOIN "nx_user_idx_info_day" IC ON H.emp_no=IC.emp_no 
+		where org_code_4 = #org_code#
+		group by H.org_code_4			
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 현재 지수점수 정보 조회 : 담당-->
+ 	<select id="dashboard.getUserIdxInfoCurrScoreDamdang" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		select 
+			trunc(round(avg(coalesce(IC.score, 100)), 3)) score , 
+			H.org_code_3 org_code
+		from "nx_org_user_hier" H
+		LEFT JOIN "nx_user_idx_info" IC ON H.emp_no=IC.emp_no 
+		where org_code_3 = #org_code#
+		group by H.org_code_3
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 현재 지수점수 정보 조회 : 본부-->
+ 	<select id="dashboard.getUserIdxInfoCurrScoreBonbu" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[ 	
+		select 
+			trunc(round(avg(coalesce(IC.score, 100)), 3)) score ,
+			H.org_code_2 org_code
+		from "nx_org_user_hier" H
+		LEFT JOIN "nx_user_idx_info_day" IC ON H.emp_no=IC.emp_no 
+		where org_code_2 = #org_code#
+		group by H.org_code_2
+ 	]]>
+ 	</select>		
+
+ 	<!-- 현재 지수점수 정보 조회 : 부문-->
+ 	<select id="dashboard.getUserIdxInfoCurrScoreBumoon" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[ 
+		select
+			trunc(round(avg(coalesce(IC.score, 100)), 3)) score ,
+			H.org_code_1 org_code
+		from "nx_org_user_hier" H
+		LEFT JOIN "nx_user_idx_info_day" IC ON H.emp_no=IC.emp_no 
+		where org_code_1 = #org_code#
+		group by H.org_code_1 	
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 현재 지수점수 정보 조회 : 총괄 & 관리자-->
+ 	<select id="dashboard.getUserIdxInfoCurrScoreChong" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[ 
+		SELECT 
+			trunc(round(AVG(COALESCE(IC.SCORE,
+			100)), 3)) SCORE ,
+			H.ORG_CODE_0 ORG_CODE,
+			COUNT(*) COUNT  
+		FROM "nx_user_idx_info_day" IC
+		LEFT JOIN "nx_org_user_hier" H ON H.EMP_NO=IC.EMP_NO   
+		WHERE 
+			IDX_RGDT_DATE IN (
+				SELECT
+				TO_CHAR((CURRENT_DATE - INTERVAL '1 DAYS' ),
+				'YYYYMMDD') 
+			) /* 전일기준 */  
+		
+			AND ORG_CODE_0 =  #org_code#  
+		GROUP BY H.ORG_CODE_0	
+ 	]]>
+ 	</select> 	
+ 	
+ 	
+ 	<!-- 지수화정책 건수 조회 : 개인 -->
+ 	<select id="dashboard.getUserIdxInfoCount" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[	
+		SELECT 
+				I.EMP_NO, SUM(I.COUNT) COUNT, D.DIAG_DESC
+		FROM "nx_user_idx_info" I, "pol_idx" P, diag_item_code D
+		WHERE I.EMP_NO = #emp_no#
+				AND I.POL_IDX_ID = P.SEC_POL_ID
+				AND P.DIAG_MAJR_CODE = D.DIAG_MINR_CODE
+		        AND I.idx_rgdt_date in (
+		            select
+		                max(idx_rgdt_date)                
+		            from
+		                nx_user_idx_info               
+		            where
+		                to_date(idx_rgdt_date, 'YYYYMMDD') < current_date            
+		        ) 
+				GROUP BY D.DIAG_MINR_CODE, I.EMP_NO, D.DIAG_DESC
+				ORDER BY DIAG_DESC		
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 지수화정책 건수 조회 : 팀 --> 	
+ 	<select id="dashboard.getUserIdxInfoCountTeam" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[ 
+ 	
+		select D.diag_desc, sum(count) count
+		from (
+			SELECT *
+			FROM "nx_org_user" U
+			LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+			LEFT JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no 
+	        AND I.idx_rgdt_date in (
+	            select
+	                max(idx_rgdt_date)                
+	            from
+	                nx_user_idx_info               
+	            where
+	                to_date(idx_rgdt_date, 'YYYYMMDD') < current_date            
+	        ) 
+			WHERE U.org_code=#org_code#
+		) A
+		LEFT JOIN "pol_idx" P ON P.SEC_POL_ID = A.pol_idx_id
+		LEFT JOIN diag_item_code D ON P.DIAG_MAJR_CODE = D.DIAG_MINR_CODE
+		where A.count is not null
+		group by D.diag_desc
+		ORDER BY D.DIAG_DESC 	
+ 	
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 지수화정책 건수 조회 : 담당 -->
+ 	<select id="dashboard.getUserIdxInfoCountDamdang" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[ 
+		select D.diag_desc, sum(count) count
+		from (
+			select *
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info" I ON H.emp_no=I.emp_no 
+	        AND I.idx_rgdt_date in (
+	            select
+	                max(idx_rgdt_date)                
+	            from
+	                nx_user_idx_info               
+	            where
+	                to_date(idx_rgdt_date, 'YYYYMMDD') < current_date            
+	        ) 
+			where org_code_3 = #org_code#
+	
+		) A
+		LEFT JOIN "pol_idx" P ON P.SEC_POL_ID = A.pol_idx_id
+		LEFT JOIN diag_item_code D ON P.DIAG_MAJR_CODE = D.DIAG_MINR_CODE
+		where A.count is not null
+		group by D.diag_minr_code, D.diag_desc
+		ORDER BY D.DIAG_DESC 	
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 지수화정책 건수 조회 : 본부 -->
+ 	<select id="dashboard.getUserIdxInfoCountBonbu" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[ 
+		select D.diag_desc, sum(count) count
+		from (
+			select *
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info" I ON H.emp_no=I.emp_no 
+	        AND I.idx_rgdt_date in (
+	            select
+	                max(idx_rgdt_date)                
+	            from
+	                nx_user_idx_info               
+	            where
+	                to_date(idx_rgdt_date, 'YYYYMMDD') < current_date            
+	        )
+			where org_code_2 = #org_code#
+	
+		) A
+		LEFT JOIN "pol_idx" P ON P.SEC_POL_ID = A.pol_idx_id
+		LEFT JOIN diag_item_code D ON P.DIAG_MAJR_CODE = D.DIAG_MINR_CODE
+		where A.count is not null
+		group by D.diag_minr_code, D.diag_desc
+		ORDER BY D.DIAG_DESC 		
+ 	]]>
+ 	</select>
+ 	
+ 	<!-- 지수화정책 건수 조회 : 부문 -->
+ 	<select id="dashboard.getUserIdxInfoCountBumoon" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		select D.diag_desc, sum(count) count
+		from (
+			select *
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info" I ON H.emp_no=I.emp_no 
+	        AND I.idx_rgdt_date in (
+	            select
+	                max(idx_rgdt_date)                
+	            from
+	                nx_user_idx_info               
+	            where
+	                to_date(idx_rgdt_date, 'YYYYMMDD') < current_date            
+	        )
+			where org_code_1 = #org_code#
+	
+		) A
+		LEFT JOIN "pol_idx" P ON P.SEC_POL_ID = A.pol_idx_id
+		LEFT JOIN diag_item_code D ON P.DIAG_MAJR_CODE = D.DIAG_MINR_CODE
+		where A.count is not null
+		group by D.diag_minr_code, D.diag_desc
+		ORDER BY D.DIAG_DESC 	  	
+ 	]]>
+ 	</select>
+ 	
+ 	
+ 	
+	<!-- 지수화정책 건수 조회 : 총괄 관리자 -->
+ 	<select id="dashboard.getUserIdxInfoCountChong" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		select D.diag_desc, sum(count) count
+		from (
+			select *
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info" I ON H.emp_no=I.emp_no 
+	        AND I.idx_rgdt_date in (
+	            select
+	                max(idx_rgdt_date)                
+	            from
+	                nx_user_idx_info               
+	            where
+	                to_date(idx_rgdt_date, 'YYYYMMDD') < current_date            
+	        )
+			where org_code_0 = #org_code#
+	
+		) A
+		LEFT JOIN "pol_idx" P ON P.SEC_POL_ID = A.pol_idx_id
+		LEFT JOIN diag_item_code D ON P.DIAG_MAJR_CODE = D.DIAG_MINR_CODE
+		where A.count is not null
+		group by D.diag_minr_code, D.diag_desc
+		ORDER BY D.DIAG_DESC 	
+	  	
+ 	]]>
+ 	</select>
+ 	
+
+ 	<!-- 보안진단 점수추이 7 month  All 개인 팀 담당 본부 부문 -->
+ 	<!-- ALL 7개월 진단추이 -->
+ 	<select id="dashboard.getUserIdxInfoTrendAll" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 		<![CDATA[
+ 		select trim(leading '0' from month_g) month_g, count, score, org_nm
+		from (
+			select  TO_CHAR(TO_DATE(idx_rgdt_date,'YYYYMMDD'), 'MM') || '월' month_g,   
+			count(*), trunc(round(avg(score), 3)) as score, org_code_0 org_code, org_nm_0 org_nm
+			from  "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info_day" ID ON ID.emp_no = H.emp_no
+			where H.org_code_0 = #emp_code#
+			and TO_DATE(idx_rgdt_date,'YYYYMMDD') > (select current_date - interval '7 months')
+			group by month_g, org_code_0, org_nm_0
+			order by month_g
+		) A	
+ 	]]>
+ 	</select>
+ 	<!-- 개인 7개월 진단추이 emp_nm  => org_nm-->
+ 	<select id="dashboard.getUserIdxInfoTrendPersonal" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 		<![CDATA[
+ 		select trim(leading '0' from month_g) month_g, count, score, org_code, org_nm
+		from (		
+			select  TO_CHAR(TO_DATE(idx_rgdt_date,'YYYYMMDD'), 'MM') || '월' month_g, 
+			count(*), trunc(round(avg(score), 3)) as score, org_code_4 org_code, emp_nm org_nm
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_org_user" U ON U.emp_no = H.emp_no
+			LEFT JOIN "nx_user_idx_info_day" I ON I.emp_no = U.emp_no
+			where H.emp_no = #emp_no#
+			and TO_DATE(idx_rgdt_date,'YYYYMMDD') > (select current_date - interval '7 months')
+			group by month_g, org_code_4, emp_nm
+			order by month_g
+		) A	
+ 	]]>
+ 	</select>
+ 	<!-- 팀 7개월 진단 추이 -->
+ 	<select id="dashboard.getUserIdxInfoTrendTeam" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 		<![CDATA[
+ 		select trim(leading '0' from month_g) month_g, count, score, org_code, org_nm
+		from (	
+			select  TO_CHAR(TO_DATE(idx_rgdt_date,'YYYYMMDD'), 'MM') || '월' month_g,
+			count(*), trunc(round(avg(score), 3)) as score, org_code_4 org_code, org_nm_4 org_nm
+			from  "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info_day" ID ON ID.emp_no = H.emp_no
+			where H.org_code_4 = #org_code#
+			and TO_DATE(idx_rgdt_date,'YYYYMMDD') > (select current_date - interval '7 months')
+			group by month_g, org_code_4, org_nm_4
+			order by month_g
+		) A
+ 	]]>
+ 	</select>
+ 	<!-- 담당 7개월 진단 추이 -->
+ 	<select id="dashboard.getUserIdxInfoTrendDamdang" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 		<![CDATA[
+ 		select trim(leading '0' from month_g) month_g, count, score, org_code, org_nm
+		from (
+			select  TO_CHAR(TO_DATE(idx_rgdt_date,'YYYYMMDD'), 'MM') || '월' month_g,
+			count(*), trunc(round(avg(score), 3)) as score, org_code_3 org_code, org_nm_3 org_nm
+			from  "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info_day" ID ON ID.emp_no = H.emp_no
+			where H.org_code_3 = #org_code#
+			and TO_DATE(idx_rgdt_date,'YYYYMMDD') > (select current_date - interval '7 months')
+			group by month_g, org_code_3, org_nm_3
+			order by month_g
+		) A	
+ 	]]>
+ 	</select>
+ 	<!-- 본부 7개월 진단 추이 -->
+ 	<select id="dashboard.getUserIdxInfoTrendBonbu" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 		<![CDATA[
+  		select trim(leading '0' from month_g) month_g, count, score, org_code, org_nm
+		from (
+			select  TO_CHAR(TO_DATE(idx_rgdt_date,'YYYYMMDD'), 'MM') || '월' month_g,
+			count(*), trunc(round(avg(score), 3)) as score, org_code_2 org_code, org_nm_2 org_nm
+			from  "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info_day" ID ON ID.emp_no = H.emp_no
+			where H.org_code_2 = #org_code#
+			and TO_DATE(idx_rgdt_date,'YYYYMMDD') > (select current_date - interval '7 months')
+			group by month_g, org_code_2, org_nm_2
+			order by month_g
+		) A	
+ 	]]>
+ 	</select>
+ 	<!-- 부문 7개월 진단 추이 -->
+ 	<select id="dashboard.getUserIdxInfoTrendBumoon" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 		<![CDATA[
+ 		select trim(leading '0' from month_g) month_g, count, score, org_code, org_nm
+		from ( 				
+			select  TO_CHAR(TO_DATE(idx_rgdt_date,'YYYYMMDD'), 'MM') || '월' month_g,
+			count(*), trunc(round(avg(score), 3)) as score, org_code_1 org_code, org_nm_1 org_nm
+			from  "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info_day" ID ON ID.emp_no = H.emp_no
+			where H.org_code_1 = #org_code#
+			and TO_DATE(idx_rgdt_date,'YYYYMMDD') > (select current_date - interval '7 months')
+			group by month_g, org_code_1, org_nm_1
+			order by month_g
+		) A	
+		]]>
+	</select>
+	
+ 	<!-- 개인: 지수점수 -->
+ 	<select id="dashboard.getUserSecCount" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+
+		SELECT
+		*
+		FROM "nx_user_idx_info" A
+				WHERE 1=1
+		
+ 	]]>
+ 	</select>	
+
+
+	<!-- V2.0 정책별 지수점수 개인 : emp_no -->
+	<select id="dashboard.getUserIdxInfoCurr" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		SELECT 
+				I.EMP_NO
+				, I.SCORE
+				, P.SEC_POL_DESC DESCNAME
+				/*, case 
+					WHEN I.SCORE >= 90 THEN '양호' 
+					else '취약' 
+				end as idxstatus*/
+				, CASE WHEN coalesce(I.SCORE, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+					CASE WHEN coalesce(I.SCORE, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.SCORE, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약'
+				    END 
+				END idxstatus
+		FROM "nx_user_idx_info" I, "pol_idx" P
+		WHERE I.EMP_NO = #emp_no#
+				AND I.POL_IDX_ID = P.SEC_POL_ID
+				AND I.idx_rgdt_date in (
+		            select to_char((current_date - 1), 'YYYYMMDD') 
+        		) 
+ 	]]>
+ 	</select>
+ 	
+
+ 	
+	<!-- /* 팀원별 지수 점수 */ -->
+	<select id="dashboard.getUserIdxInfoCurrTeam" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+	select
+		org_code, emp_no, emp_nm, org_nm, count, score
+		/*,CASE WHEN score >= coalesce(100, 0) THEN '양호' ELSE '취약' END idx_status*/
+		, CASE WHEN coalesce(score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+			CASE WHEN coalesce(score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+			 AND coalesce(score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+			END 
+		END idx_status
+	from (
+			SELECT G.org_code org_code
+				, U.emp_no emp_no
+				, U.emp_nm emp_nm
+				, G.org_nm org_nm
+				, coalesce(trunc(ROUND(AVG(I.score), 3)), 100) score
+				, coalesce(SUM(I.count), 0) count
+				, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate
+			FROM "nx_org_user" U
+			LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+			LEFT JOIN "nx_user_idx_info" I ON U.emp_no=I.emp_no AND I.idx_rgdt_date in (select to_char((current_date - interval '1 days' ), 'YYYYMMDD'))
+			WHERE U.org_code=#org_code#
+			GROUP BY G.org_code, U.emp_no, U.emp_nm, I.idx_rgdt_date, G.org_nm
+	) A
+	order by emp_nm
+		]]>
+	</select>
+
+
+
+	<!-- /* 담당별 지수 점수 */ -->
+	<select id="dashboard.getUserIdxInfoCurrDamdang" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		select G.org_code, G.org_nm org_nm, A.count, A.score, A.scorestat idx_status, 
+			coalesce(U.emp_nm, '*') emp_nm,
+			coalesce(U.title_code, '*')title_code,
+			coalesce(U.title_nm, '*') title_nm
+		from (
+			select org_code_4, org_nm_4, count(*), 
+			coalesce(trunc(round(AVG(I.score), 3)), 100) score,
+			/*CASE WHEN I.score >= coalesce(100, 0) THEN '양호' ELSE '취약' END scorestat*/
+			 CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				 AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END 
+			END scorestat
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info" I ON H.emp_no=I.emp_no
+			where org_code_3 = #org_code#
+			group by org_code_4, org_nm_4, scorestat
+			order by org_nm_4
+		) A
+		LEFT JOIN "nx_org_group" G ON G.org_code=A.org_code_4
+		LEFT JOIN "nx_org_user" U ON U.emp_no=G.org_cap_no
+		where G.org_code is not null;
+		]]>
+	</select>	
+
+	<!-- /* 본부별 지수 점수 */ -->
+	<select id="dashboard.getUserIdxInfoCurrBonbu" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		select G.org_code, G.org_nm org_nm, A.count, A.score, A.scorestat idx_status, 
+			coalesce(U.emp_nm, '*') emp_nm,
+			coalesce(U.title_code, '*')title_code,
+			coalesce(U.title_nm, '*') title_nm
+		from (
+			select org_code_3, org_nm_3, count(*), 
+			coalesce(trunc(round(AVG(I.score), 3)), 100) score,
+			/*CASE WHEN I.score >= coalesce(100, 0) THEN '양호' ELSE '취약' END scorestat*/
+			 CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				 AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END
+			END scorestat
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info" I ON H.emp_no=I.emp_no 
+			where org_code_2 = #org_code#
+			group by org_code_3, org_nm_3, scorestat
+			order by org_nm_3
+		) A
+		LEFT JOIN "nx_org_group" G ON G.org_code=A.org_code_3
+		LEFT JOIN "nx_org_user" U ON U.emp_no=G.org_cap_no
+		where G.org_code is not null;
+		]]>
+	</select>
+	
+	<!-- /* 부문별 지수 점수 */ -->
+	<select id="dashboard.getUserIdxInfoCurrBumoon" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+		select G.org_code, G.org_nm org_nm, A.count, A.score, A.scorestat idx_status, 
+			coalesce(U.emp_nm, '*') emp_nm,
+			coalesce(U.title_code, '*')title_code,
+			coalesce(U.title_nm, '*') title_nm
+		from (
+			select org_code_2, org_nm_2, count(*), 
+			coalesce(trunc(round(AVG(I.score), 3)), 100) score,
+			/*CASE WHEN I.score >= coalesce(100, 0) THEN '양호' ELSE '취약' END scorestat*/
+			CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				 AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END 
+			END scorestat
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info" I ON H.emp_no=I.emp_no
+			where org_code_1 = #org_code#
+			group by org_code_2, org_nm_2, scorestat
+			order by org_nm_2
+		) A
+		LEFT JOIN "nx_org_group" G ON G.org_code=A.org_code_2
+		LEFT JOIN "nx_org_user" U ON U.emp_no=G.org_cap_no
+		where G.org_code is not null; 	
+		]]>
+	</select>		
+	
+	<!-- /* 총괄 관리자 지수 점수 */ -->
+	<select id="dashboard.getUserIdxInfoCurrChong" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+ 	<![CDATA[
+	    select
+	        G.org_code,
+	        G.org_nm org_nm,
+	        A.count,
+	        A.score,
+	       /*     CASE 
+	                WHEN A.score >= coalesce(100,
+	                100) THEN '양호' 
+	                ELSE '취약' 
+	            END idx_status,*/
+	       CASE WHEN coalesce(A.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(A.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				 AND coalesce(A.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END 
+			END idx_status,     
+	        coalesce(U.emp_nm,
+	        '*') emp_nm,
+	        coalesce(U.title_code,
+	        '*')title_code,
+	        coalesce(U.title_nm,
+	        '*') title_nm   
+	    from
+	        (    select
+	            org_code_1,
+	            org_nm_1,
+	            count(*),
+	            coalesce(trunc(ROUND(AVG(I.score), 3)),
+	            100) score   
+	        from
+	            "nx_org_user_hier" H    
+	        LEFT JOIN
+	            "nx_user_idx_info" I 
+	                ON H.emp_no=I.emp_no    
+	                and I.idx_rgdt_date in ( select max(idx_rgdt_date) from nx_user_idx_info_day where to_date(idx_rgdt_date, 'YYYYMMDD') < current_date )
+	        where org_code_0 = #org_code#   
+	        group by
+	            org_code_1,
+	            org_nm_1  
+	        order by
+	            org_nm_1   ) A   
+	    LEFT JOIN
+	        "nx_org_group" G 
+	            ON G.org_code=A.org_code_1   
+	    LEFT JOIN
+	        "nx_org_user" U 
+	            ON U.emp_no=G.org_cap_no   
+	    where
+	        G.org_code is not null;			
+		]]>
+	</select>	
+	
+	
+	<!-- 대무자 조회 대무자는 1명 -->
+	<select id="dashboard.getProxyUser" parameterClass="java.util.HashMap" resultClass="UserManageVO">
+	<![CDATA[
+		SELECT
+			 emp_no emp_no
+			,proxy_emp_no proxy_no
+		FROM "proxy"
+		WHERE proxy_emp_no=#emp_no#
+		AND emp_no= #capNo#
+		LIMIT 1;
+	]]>
+	</select>
+	
+	<!-- /* Tong 지수 점수 */ -->
+	<select id="dashboard.getUserIdxInfoCurrTong" parameterClass="java.util.HashMap" resultClass="egovMap">
+ 	<![CDATA[
+		select G.org_code, G.org_nm org_nm, A.score, A.scorestat idx_status, 
+			coalesce(U.emp_nm, '*') emp_nm,
+			coalesce(U.title_code, '*')title_code,
+			coalesce(U.title_nm, '*') title_nm
+		from (
+			select org_code_3, org_nm_3,
+			coalesce(trunc(round(AVG(I.score), 3)), 100) score,
+			/*CASE WHEN I.score >= coalesce(100, 0) THEN '양호' ELSE '취약' END scorestat*/
+			CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				 AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END
+			END scorestat
+			from "nx_org_user_hier" H
+			LEFT JOIN "nx_user_idx_info_day" I ON H.emp_no=I.emp_no 
+			where org_code_2 = #org_code#
+			group by org_code_3, org_nm_3, scorestat
+			order by org_nm_3
+		) A
+		LEFT JOIN "nx_org_group" G ON G.org_code=A.org_code_3
+		LEFT JOIN "nx_org_user" U ON U.emp_no=G.org_cap_no
+		where G.org_code is not null;
+		]]>
+	</select>
+	
+	<!-- V2.0 팀원 결과 조회 -->
+	<select id="dashboard.getUserOrgResultList" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode
+			, U.emp_no empno
+			, U.emp_nm descname
+			, G.org_nm orgnm
+			, coalesce(trunc(round(AVG(I.score),3)), 0) score
+			/*, CASE 
+                WHEN trunc(round(AVG(I.score),3)) >= coalesce(90,0) THEN '양호' 
+                ELSE '취약' 
+              END idxstatus*/
+             , CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				 AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END 
+			END idxstatus
+			, to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') regdate
+		FROM "nx_org_user" U
+		LEFT JOIN "nx_org_group" G ON U.org_code=G.org_code
+		LEFT JOIN "nx_user_idx_info_day" I ON U.emp_no=I.emp_no 
+			AND I.idx_rgdt_date in ( 
+				  select to_char((current_date - 1), 'YYYYMMDD') 
+			)		
+		WHERE U.org_code=#org_upper#
+		GROUP BY G.org_code, U.emp_no, U.emp_nm, G.org_nm, I.idx_rgdt_date;
+	]]>
+	</select>
+	
+	<!-- V2.0 사번의 하위조직 정보조회 -->
+	<select id="dashboard.getUserInfoCap" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+		select U.emp_no empno, U.emp_nm empnm, U.posn_nm posnnm, U.title_nm titlenm, U.level_nm levelnm, G.org_code orgcode, 
+		(coalesce(G.org_cap_no,'99')) lv, G.upper_org_code upperorgcode, G.org_level orglevel, G.org_nm orgnm 
+		from nx_org_user U
+		left join nx_org_group G on G.org_cap_no=U.emp_no
+		where emp_no=#emp_no#
+	]]>
+	</select>
+	
+	<!-- V2.0 선택조직의 하위조직조회 -->
+	<select id="dashboard.getOrgSubList" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT G.org_code orgcode, G.org_nm orgnm
+		FROM "nx_org_group" G
+		WHERE G.upper_org_code = #org_upper# AND G.is_collabor='N' AND G.use_indc='1'
+		ORDER BY G.org_order;	
+	]]>		
+	</select>
+	
+	<!-- 조직별 점수 및 건수 조회 -->
+	<select id="dashboard.getOrgResultInfo--------" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+		SELECT  
+			  (SELECT org_code FROM "nx_org_group" WHERE org_code=#org_upper#) orgcode
+ 			, (SELECT org_nm FROM "nx_org_group" WHERE org_code=#org_upper#) DESCNAME
+		 	, coalesce(trunc(round(AVG(I.score),3)), 0) score
+			/*, CASE 
+                WHEN trunc(round(AVG(I.score),3)) >= coalesce(100,0) THEN '양호' 
+                ELSE '취약' 
+              END idxstatus*/
+           , CASE WHEN trunc(round(AVG(I.score),3)) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+				CASE WHEN trunc(round(AVG(I.score),3)) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				 AND trunc(round(AVG(I.score),3)) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				END 
+			END idxstatus
+		 	, CASE WHEN (SELECT COUNT(*) FROM "nx_org_group" WHERE upper_org_code=#org_upper#) > 0 THEN 'Y' ELSE 'N' END issuborg
+		FROM "nx_user_idx_info" I
+		LEFT JOIN "nx_org_user" U ON I.emp_no=U.emp_no
+ 		INNER JOIN (SELECT org_code FROM "nx_org_group" WHERE fn_nx_get_userorgindex(org_code) LIKE CONCAT('%',#org_upper#,'%')) H ON H.org_code=U.org_code
+		WHERE I.idx_rgdt_date in ( select max(idx_rgdt_date) from nx_user_idx_info_day where to_date(idx_rgdt_date, 'YYYYMMDD') < current_date )		
+	]]>
+	</select>	
+	
+	<!-- 보안점수 추이 점수조회 -->
+	<select id="dashboard.getOrgResultTrendInfo" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+		    SELECT
+		          (SELECT org_code 
+		          FROM
+		              "nx_org_group" 
+		          WHERE
+		              org_code= #org_upper# ) orgcode
+		        , (SELECT
+		            org_nm 
+		          FROM
+		            "nx_org_group" 
+		          WHERE
+		            org_code= #org_upper# ) DESCNAME     
+		        , coalesce(trunc(round(AVG(I.score),3)), 0) score 
+		        	 TO_CHAR(TO_DATE(idx_rgdt_date, 'YYYYMMDD'), 'MM') || '월' month_g
+		    FROM
+		        "nx_user_idx_info_day" I   
+		    LEFT JOIN
+		        "nx_org_user" U 
+		            ON I.emp_no=U.emp_no    
+		    INNER JOIN
+		        (
+		          SELECT
+		                org_code 
+		          FROM
+		                "nx_org_group" 
+		          WHERE
+		                fn_nx_get_userorgindex(org_code) LIKE CONCAT('%', #org_upper#,'%')
+		        ) H 
+		          ON H.org_code=U.org_code   
+		    WHERE
+		          TO_DATE(I.idx_rgdt_date,'YYYYMMDD') > (
+		                select
+		                    current_date - interval '7 months'
+		          ) 
+		
+		    group by month_g
+		    order by month_g					
+	]]>
+	</select>	
+	
+	<!-- ver2.0 보안점수 추이 점수 조회 : 조직/조직 nx_org_sum_info -->
+	<select id="dashboard.getOrgSumInfoTrend" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			SELECT 
+				/* TO_CHAR(TO_DATE(sum_rgdt_date, 'YYYYMMDD'), 'MM') || '/' || TO_CHAR(TO_DATE(sum_rgdt_date, 'YYYYMMDD'), 'DD') month_g */
+				TO_CHAR(TO_DATE(sum_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') month_g
+				,  org_code org_code
+				,  org_nm  org_nm
+				,  avg score
+			FROM nx_org_sum_info 
+			WHERE org_code=#org_code#
+			AND
+				TO_DATE(sum_rgdt_date,'YYYYMMDD') > ( SELECT CURRENT_DATE - INTERVAL '3 MONTHS' )
+			ORDER BY sum_rgdt_date
+	]]>
+	</select>
+	
+	<!-- ver3.0 보안점수 추이 점수 조회 : 조직/조직 + 부서/부서 nx_total_sum_info -->
+	<select id="dashboard.getOrgBuseoSumInfoTrend" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			SELECT 
+				/* TO_CHAR(TO_DATE(sum_rgdt_date, 'YYYYMMDD'), 'MM') || '/' || TO_CHAR(TO_DATE(sum_rgdt_date, 'YYYYMMDD'), 'DD') month_g */
+				TO_CHAR(TO_DATE(sum_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') month_g
+				,  org_code org_code
+				,  org_nm  org_nm
+				,  avg score
+			FROM nx_total_sum_info 
+			WHERE org_code=#org_code#
+			AND
+				sum_rgdt_date >= (SELECT MIN(sum_rgdt_date) 
+									FROM nx_org_sum_info
+									WHERE sum_rgdt_date >= to_char(CURRENT_DATE - INTERVAL '3 MONTHS', 'YYYYMMDD'))
+			ORDER BY sum_rgdt_date
+	]]>
+	</select>	
+	
+	<!-- ver2.0 보안점수 추이 점수 조회 : 개인/개인 nx_user_idx_info_DAY -->
+	<select id="dashboard.getPerSumInfoTrend" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			SELECT 
+				(SELECT EMP_NM FROM nx_org_user WHERE EMP_NO=#emp_no#) emp_nm
+				,  emp_no
+				, TO_CHAR(TO_DATE(idx_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD') month_g
+				, MIN(scor_curr) score
+			FROM nx_user_idx_info_day
+			WHERE emp_no=#emp_no#
+			AND
+				idx_rgdt_date >= (SELECT MIN(idx_rgdt_date)
+									FROM nx_user_idx_info_day
+									WHERE idx_rgdt_date >= to_char(CURRENT_DATE - INTERVAL '3 MONTHS', 'YYYYMMDD'))
+			GROUP BY emp_no, idx_rgdt_date
+			ORDER BY idx_rgdt_date
+	]]>
+	</select>
+	
+	<!-- ver2.0 소속조직 코드 조회 : 조직/조직 fn_nx_get_upper_ogan_code_arr -->
+	<select id="dashboard.getOrgCodeUpper---------" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[	
+			SELECT U.org_code org_code, G.org_nm org_nm
+			
+			FROM (
+			    SELECT
+			        fn_nx_get_upper_ogan_code_arr_ex org_code             
+			    FROM
+			        fn_nx_get_upper_ogan_code_arr_ex(#emp_no#)
+			 ) U
+			 LEFT JOIN nx_org_group G ON G.org_code=U.org_code
+    ]]>
+    </select>
+    
+    
+    <select id="dashboard.getOrgCodeUpper" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[	
+				select org_code, org_nm from nx_org_group where org_code ='000001'
+         UNION ALL
+        select org_code, org_nm from nx_org_group where org_code = (select upper_org_code from nx_org_group where org_code =(select org_code from nx_org_user where emp_no =#emp_no#))
+        UNION ALL
+        select org_code, org_nm from nx_org_group where org_code = (select org_code from nx_org_user where emp_no =#emp_no#)
+    ]]>
+    </select>
+
+	<!-- ver2.0 조직 현재스코어(SORE) 조회 : 조직 Avg -->
+	<select id="dashboard.getOrgCurScore" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			SELECT 
+				org_code,
+				org_nm,
+				avg score 
+			FROM nx_org_sum_info
+			WHERE org_code=#org_code#
+			AND sum_rgdt_date in (
+				  select to_char((current_date - 1), 'YYYYMMDD') 
+			)
+	]]>
+	</select>
+	
+	<!-- ver3.0 조직 + 부서 현재스코어(SORE) 조회 : 조직 + 부서 Avg nx_total_sum_info -->
+	<select id="dashboard.getOrgBuseoCurScore" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			SELECT 
+				org_code,
+				org_nm,
+				avg score 
+			FROM nx_total_sum_info
+			WHERE org_code=#org_code#
+			AND sum_rgdt_date in (
+				  select to_char((current_date - 1), 'YYYYMMDD') 
+			)
+	]]>
+	</select>	
+	
+	<!-- ver2.0 개인 현재스코어(SORE) 조회 : 개인 Min  -->
+	<select id="dashboard.getPerCurScore---------------" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			SELECT 
+				I.emp_no, 
+				min(I.scor_curr) score,
+				U.emp_nm,
+				U.title_nm,
+				U.level_nm,
+				G.org_nm
+			FROM nx_user_idx_info_day I
+			LEFT JOIN nx_org_user U ON U.emp_no = I.emp_no
+			LEFT JOIN nx_org_group G ON G.org_code = U.org_code
+			WHERE I.emp_no = #emp_no#
+			AND I.idx_rgdt_date in (
+				  select to_char((current_date - 1), 'YYYYMMDD') 
+			)
+			GROUP BY I.emp_no, U.emp_nm, U.title_nm, U.level_nm, G.org_nm
+	]]>
+	</select>
+
+	<select id="dashboard.getPerCurScore" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			SELECT
+				A.emp_no, 
+				coalesce(min(I.scor_curr),0) score,
+				A.emp_nm,
+				A.title_nm,
+				A.level_nm,
+				A.org_nm
+			FROM
+			(
+			
+			    SELECT
+			    *
+			    FROM
+				nx_org_group G
+			    LEFT JOIN 
+			        nx_org_user U ON G.org_code = U.org_code
+			        where U.emp_no=#emp_no#
+			) A      
+			    LEFT JOIN
+			        nx_user_idx_info_day I  
+			            ON A.emp_no = I.emp_no
+			        AND I.idx_rgdt_date in (
+						select to_char((current_date - 1), 'YYYYMMDD')   
+			        )             
+
+			    GROUP BY
+			        A.emp_no,
+			        A.emp_nm,
+			        A.title_nm,
+			        A.level_nm,
+			        A.org_nm 
+	]]>
+	</select>	
+		
+	
+	<!-- ver2.0 조직 진단항목발생 건수(COUNT) 조회 : 조직 pol_sum_info  -->
+	<select id="dashboard.getOrgIdxCount" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			WITH LIST(diag_majr_code, diag_desc, polCnt, buseo_indc)
+			AS(
+			 SELECT
+			        D.diag_majr_code,
+			        D.diag_desc,
+					(SELECT COUNT(*) FROM pol_idx P WHERE P.diag_majr_code=D.diag_majr_code AND P.use_indc='Y') polCnt,
+					D.buseo_indc
+			 FROM  diag_item_code D
+			 WHERE  D.use_indc='Y'     
+			        AND D.diag_majr_code=D.diag_minr_code     
+			        AND D.buseo_indc = 'N'   
+			 ORDER BY D.diag_majr_code  
+			)SELECT L.diag_majr_code, L.diag_desc
+				, coalesce(C.totcount::varchar, '-') count
+				, coalesce(C.avgscore::varchar, '0') score
+				, coalesce(C.avgscore::varchar, '-') avg_score
+				, L.buseo_indc
+			FROM LIST L
+			LEFT JOIN 
+			(SELECT P.diag_majr_code
+				, SUM(coalesce(I.tot_count, 0)) totcount
+				, trunc(round(avg(coalesce(I.avg, 100)),3)) avgscore
+			 FROM pol_idx P
+			 LEFT JOIN nx_pol_sum_info I 
+			 ON I.pol_idx_id = P.sec_pol_id        
+			 AND I.org_code = #orgCode# 
+			 AND I.sum_rgdt_date =(SELECT to_char((current_date - 1),'YYYYMMDD'))
+			 WHERE P.use_indc='Y'
+			 GROUP BY P.diag_majr_code )
+			C ON C.diag_majr_code=L.diag_majr_code	
+	
+	]]>
+	</select>
+	<!-- 
+	<select id="dashboard.getOrgIdxCount" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+
+			SELECT 
+				D.diag_majr_code, D.diag_desc, coalesce(sum(S.tot_count), 0) count,
+				coalesce(avg(S.avg), 100) score,
+				D.buseo_indc 
+			FROM diag_item_code D
+			LEFT JOIN pol_idx P ON P.DIAG_MAJR_CODE=D.DIAG_MAJR_CODE
+			LEFT JOIN nx_pol_sum_info S ON 
+				S.pol_idx_id=P.sec_pol_id 
+				AND S.org_code = #orgCode#
+				AND sum_rgdt_date in (
+					  select to_char((current_date - 1), 'YYYYMMDD') 
+				)
+			WHERE D.use_indc='Y'
+				AND D.diag_majr_code=D.diag_minr_code
+				AND D.buseo_indc = 'N'
+			GROUP BY D.diag_majr_code, D.diag_desc, D.buseo_indc
+			ORDER BY D.diag_majr_code		
+	
+	]]>
+	</select>
+	 -->
+	<!-- ver2.0 개인 진단항목발생 건수(COUNT) 조회 : 개인 nx_user_idx_info  -->
+	<select id="dashboard.getPerIdxCount" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			WITH LIST(diag_majr_code, diag_desc, polCnt, buseo_indc)
+			AS(
+			 SELECT
+			        D.diag_majr_code,
+			        D.diag_desc,
+					(SELECT COUNT(*) FROM pol_idx P WHERE P.diag_majr_code=D.diag_majr_code AND P.use_indc='Y') polCnt,
+					D.buseo_indc
+			 FROM  diag_item_code D
+			 WHERE  D.use_indc='Y'     
+			        AND D.diag_majr_code=D.diag_minr_code     
+			        AND D.buseo_indc = 'N'   
+			 ORDER BY D.diag_majr_code  
+			)SELECT L.diag_majr_code, L.diag_desc
+				, coalesce(C.totcount::varchar, '-') count
+				, coalesce(C.avgscore::varchar, '0') score
+				, coalesce(C.avgscore::varchar, '-') avg_score
+				, L.buseo_indc
+			FROM LIST L
+			LEFT JOIN 
+			(SELECT P.diag_majr_code
+				, SUM(coalesce(I.count, 0)) totcount
+				, trunc(round(avg(coalesce(I.score, 100)),3)) avgscore
+			 FROM pol_idx P
+			 LEFT JOIN nx_user_idx_info I 
+			 ON I.pol_idx_id = P.sec_pol_id        
+			 AND I.emp_no = #emp_no#
+			 AND I.idx_rgdt_date =(SELECT to_char((current_date - 1),'YYYYMMDD'))
+			 WHERE P.use_indc='Y'
+			 GROUP BY P.diag_majr_code )
+			C ON C.diag_majr_code=L.diag_majr_code;	
+	]]>
+	</select>
+	<!-- 
+	<select id="dashboard.getPerIdxCount" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+			SELECT 
+				D.diag_majr_code, D.diag_desc, 
+				coalesce(sum(I.count), 0) count,
+				coalesce(avg(I.score), 100) score,
+				D.buseo_indc 
+			FROM diag_item_code D
+			LEFT JOIN pol_idx P ON P.DIAG_MAJR_CODE=D.DIAG_MAJR_CODE
+			LEFT JOIN nx_user_idx_info I ON 
+				I.pol_idx_id=P.sec_pol_id 
+				AND I.EMP_NO = #emp_no#
+				AND idx_rgdt_date in (
+					select to_char((current_date - 1), 'YYYYMMDD') 
+				)
+			WHERE D.use_indc='Y'
+				AND D.diag_majr_code=D.diag_minr_code
+				AND D.buseo_indc = 'N'
+			GROUP BY D.diag_majr_code, D.diag_desc, D.buseo_indc
+			ORDER BY D.diag_majr_code	
+	]]>
+	</select>
+	 -->
+	
+	<!-- ver3.0 조직 + 부서 진단항목발생 건수(COUNT) 조회 : 조직 + 부서 pol_sum_info and buseo_pol_sum_info -->
+	<select id="dashboard.getOrgBuseoIdxCount" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+	SELECT L1.* FROM (
+			WITH LIST(diag_majr_code, diag_desc, polCnt, buseo_indc)
+			AS(
+			 SELECT
+			        D.diag_majr_code,
+			        D.diag_desc,
+					(SELECT COUNT(*) FROM pol_idx P WHERE P.diag_majr_code=D.diag_majr_code AND P.use_indc='Y') polCnt,
+					D.buseo_indc
+			 FROM  diag_item_code D
+			 WHERE  D.use_indc='Y'     
+			        AND D.diag_majr_code=D.diag_minr_code     
+			        AND D.buseo_indc = 'N'   
+			 ORDER BY D.diag_majr_code  
+			)SELECT L.diag_majr_code, L.diag_desc
+				, coalesce(C.totcount::varchar, '-') count
+				, coalesce(C.avgscore, '0') score
+				, coalesce(C.avgscore::varchar, '-') avg_score
+				, L.buseo_indc
+			FROM LIST L
+			LEFT JOIN 
+			(SELECT P.diag_majr_code, SUM(I.tot_count) totcount, trunc(round(avg(coalesce(I.avg, 100)),3)) avgscore
+			 FROM pol_idx P
+			 LEFT JOIN nx_pol_sum_info I 
+			 ON I.pol_idx_id = P.sec_pol_id        
+			 AND I.org_code = #orgCode# 
+			 AND I.sum_rgdt_date =(SELECT to_char((current_date - 1),'YYYYMMDD'))
+			 WHERE P.use_indc='Y'
+			 GROUP BY P.diag_majr_code )
+			C ON C.diag_majr_code=L.diag_majr_code) L1
+UNION ALL
+SELECT L2.* FROM (
+			WITH LIST(diag_majr_code, diag_desc, polCnt, buseo_indc)
+			AS(
+			 SELECT
+			        D.diag_majr_code,
+			        D.diag_desc,
+					(SELECT COUNT(*) FROM pol_idx P WHERE P.diag_majr_code=D.diag_majr_code AND P.use_indc='Y') polCnt,
+					D.buseo_indc
+			 FROM  diag_item_code D
+			 WHERE  D.use_indc='Y'     
+			        AND D.diag_majr_code=D.diag_minr_code     
+			        AND D.buseo_indc = 'Y'   
+			 ORDER BY D.diag_majr_code  
+			)SELECT L.diag_majr_code, L.diag_desc
+				, coalesce(C.totcount::varchar, '-') count
+				, coalesce(C.avgscore, '0') score
+				, coalesce(C.avgscore::varchar, '-') avg_score
+				, L.buseo_indc
+			FROM LIST L
+			LEFT JOIN 
+			(SELECT P.diag_majr_code, SUM(I.tot_count) totcount, trunc(round(avg(coalesce(I.avg, 100)),3)) avgscore
+			 FROM pol_idx P
+			 LEFT JOIN buseo_pol_sum_info I 
+			 ON I.pol_idx_id = P.sec_pol_id        
+			 AND I.org_code = #orgCode# 
+			 AND I.sum_rgdt_date =(SELECT to_char((current_date - 1),'YYYYMMDD'))
+			 WHERE P.use_indc='Y'
+			 GROUP BY P.diag_majr_code )
+			C ON C.diag_majr_code=L.diag_majr_code) L2;
+		        
+	]]>
+	</select>
+	<!-- 
+	<select id="dashboard.getOrgBuseoIdxCount" parameterClass="java.lang.String" resultClass="userIdxInfoCurrVO">
+	<![CDATA[
+		    SELECT
+		        D.diag_majr_code,
+		        D.diag_desc,
+		        coalesce(sum(S.tot_count),
+		        0) count,
+		        coalesce(avg(S.avg),
+		        100) score,
+		        D.buseo_indc    
+		    FROM
+		        diag_item_code D    
+		    LEFT JOIN
+		        pol_idx P 
+		            ON P.DIAG_MAJR_CODE=D.DIAG_MAJR_CODE    
+		    LEFT JOIN
+		        nx_pol_sum_info S 
+		            ON      S.pol_idx_id=P.sec_pol_id      
+		            AND S.org_code = #orgCode# 
+		            AND sum_rgdt_date in (
+		                select
+		                    to_char((current_date - 1),
+		                    'YYYYMMDD')      
+		            )    
+		    WHERE
+		        D.use_indc='Y'     
+		        AND D.diag_majr_code=D.diag_minr_code  
+		
+		        AND D.buseo_indc = 'N'
+		
+		          
+		    GROUP BY
+		        D.diag_majr_code,
+		        D.diag_desc,
+		        D.buseo_indc    
+		
+			UNION
+		
+		    SELECT
+		        D.diag_majr_code,
+		        D.diag_desc,
+		        coalesce(sum(S.tot_count), 0) count,
+		        coalesce(avg(S.avg), 100) score,
+		        D.buseo_indc    
+		    FROM
+		        diag_item_code D    
+		    LEFT JOIN
+		        pol_idx P 
+		            ON P.DIAG_MAJR_CODE=D.DIAG_MAJR_CODE    
+		    LEFT JOIN
+		        buseo_pol_sum_info S 
+		            ON      S.pol_idx_id=P.sec_pol_id      
+		            AND S.org_code = #orgCode# 
+		            AND sum_rgdt_date in (
+		                select
+		                    to_char((current_date - 1),
+		                    'YYYYMMDD')      
+		            )    
+		    WHERE
+		        D.use_indc='Y'     
+		        AND D.diag_majr_code=D.diag_minr_code  
+		
+		        AND D.buseo_indc = 'Y'
+		
+		          
+		    GROUP BY
+		        D.diag_majr_code,
+		        D.diag_desc,
+		        D.buseo_indc 
+		        
+	]]>
+	</select>		         	
+	 -->
+	<!-- ver2.0 지수점수 (score) 조회 : 개인 nx_org_sum_info  -->
+	<select id="dashboard.getOrgResultInfo" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[	
+			SELECT 
+				G.org_code orgcode,
+				G.org_nm DESCNAME,
+				coalesce(S.avg, 100) score,
+				/*CASE 
+				WHEN S.avg >= coalesce(90,0) THEN '양호' 
+				ELSE '취약' 
+				END idxstatus*/
+				CASE WHEN coalesce(S.avg, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+					CASE WHEN coalesce(S.avg, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(S.avg, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+					END
+				END idxstatus			
+			FROM nx_org_group G
+			LEFT JOIN nx_org_sum_info S ON S.org_code = G.org_code
+			AND S.sum_rgdt_date in (
+				select to_char((current_date - 1), 'YYYYMMDD')
+				) 
+			WHERE G.org_code=#org_upper#					
+	]]>
+	</select>
+		
+	
+	<!-- ver3.0 개인 : 진단항목 정책별지수 점수 -->
+	<select id="dashboard.perDiagMajrPolscore" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+	
+    SELECT
+        ( SELECT
+            EMP_NM 
+        FROM
+            nx_org_user 
+        WHERE
+            EMP_NO=#emp_no# 
+        ) empnm,
+        P.sec_pol_desc descname,
+        coalesce(I.count, 0) count,
+        coalesce(I.score, 100) score,
+	    /*CASE 
+	    	WHEN coalesce(I.score,	100) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호'	
+	    	ELSE '취약'                              
+	    END idxstatus,*/
+	    CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+			CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+		      AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+			END 
+		END idxstatus,         
+        CASE 
+	    	WHEN coalesce(I.score,	100) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN ''	
+	    	ELSE 'Y'                              
+	    END isapprstatustxt      
+        ,P.diag_majr_code majcode
+        ,P.diag_minr_code mincode
+        ,P.sec_pol_id polcode
+    FROM "pol_idx" P
+	LEFT JOIN "nx_user_idx_info" I 
+		ON I.pol_idx_id = P.sec_pol_id      
+	AND I.emp_no =  #emp_no#
+	AND I.idx_rgdt_date in (
+	    select to_char((current_date - 1), 'YYYYMMDD')
+	)  
+            
+    WHERE
+        1=1                  
+        AND P.diag_majr_code =  #majCode#
+        AND P.use_indc='Y'	
+	
+	ORDER BY score
+	]]> 	
+	
+	</select>
+	
+	
+	<!-- ver3.0 팀원 : 진단항목 대분류 정책 건수  점수 -->
+	<select id="dashboard.memberDiagMajrPolscore" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+	
+    SELECT
+        G.org_code orgcode,
+        U.emp_no empno,
+        U.emp_nm empnm,
+        G.org_nm orgnm,
+        coalesce(I.mac, '-') mac,
+        coalesce(I.ip, '') ip,
+        coalesce(sum(I.count), 0) count,
+        coalesce(trunc(ROUND(AVG(I.score),3)), 100) score,
+        /*CASE                               
+            WHEN coalesce(trunc(round(AVG(I.score),3)), 100) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호'                               
+            ELSE '취약'                         
+        END idxstatus,*/
+        CASE WHEN coalesce(trunc(round(AVG(I.score),3)), 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+			CASE WHEN coalesce(trunc(round(AVG(I.score),3)), 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+			AND coalesce(trunc(round(AVG(I.score),3)), 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+			END
+		END idxstatus,
+        coalesce(to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'),'YYYY-MM-DD'), 
+        to_char(to_date( ( select to_char((current_date - 1), 'YYYYMMDD') ), 'YYYYMMDD'), 'YYYY-MM-DD')) regdate        
+    FROM
+        "nx_org_user" U        
+    LEFT JOIN
+        "nx_org_group" G 
+            ON U.org_code=G.org_code        
+    LEFT JOIN
+        "nx_user_idx_info" I 
+            ON U.emp_no=I.emp_no           
+            AND I.idx_rgdt_date in ( select to_char((current_date - 1), 'YYYYMMDD') ) 
+            AND I.pol_idx_id in (
+				select sec_pol_id from pol_idx
+				where diag_majr_code=#majCode#
+            )         
+    WHERE
+        1=1         
+        AND U.org_code=  #org_upper#    
+    GROUP BY
+        G.org_code,
+        U.emp_no,
+        U.emp_nm,
+        G.org_nm,
+        I.mac,
+        I.IP,
+        I.idx_rgdt_date     
+    ORDER BY
+        score desc,
+        count desc; 
+	
+	]]>
+	</select>
+	
+
+	<!-- ver3.0 조직 : 진단항목 대분류 정책 건수  점수 -->
+	<select id="dashboard.orgDiagMajrPolscore" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+	
+	SELECT
+	    coalesce(to_char(to_date(S.sum_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD'), 
+	    	to_char(to_date( (select to_char((current_date - 1), 'YYYYMMDD')),  'YYYYMMDD'), 'YYYY-MM-DD')) sumrgdt,
+	    A.orgcode,
+	    A.orgnm,
+	    P.diag_majr_code diagmajrcode,
+	    D.diag_desc,
+	    coalesce(sum(S.tot_count), 0) count,
+	    coalesce(trunc(round(avg(S.avg), 3)), 100) score,
+        /*CASE                                            
+            WHEN coalesce(trunc(round(AVG(S.avg), 3)), 100) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호'                                            
+            ELSE '취약'                                  
+        END idxstatus*/
+        CASE WHEN coalesce(trunc(round(AVG(S.avg), 3)), 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+			CASE WHEN coalesce(trunc(round(AVG(S.avg), 3)), 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+			 AND coalesce(trunc(round(AVG(S.avg), 3)), 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+			END
+		END idxstatus
+    FROM
+	(
+		SELECT
+		    G.org_code orgcode,
+		    G.org_nm orgnm          
+		FROM
+		    "nx_org_group" G          
+		WHERE G.use_indc='1' AND
+		    G.upper_org_code =  #org_upper#        
+		ORDER BY
+		    G.org_order   
+	) A
+	     
+	INNER JOIN nx_pol_sum_info S 
+		ON S.org_code=A.orgcode 
+		AND S.sum_rgdt_date in( select to_char((current_date - 1), 'YYYYMMDD') ) 
+		AND S.pol_idx_id in (
+			select sec_pol_id from pol_idx
+			where diag_majr_code=#majCode#  AND use_indc='Y'
+		) 
+		                      
+	LEFT JOIN pol_idx P 
+        ON P.sec_pol_id=S.pol_idx_id 
+        AND P.use_indc='Y'   
+        
+	LEFT JOIN diag_item_code D 
+        ON D.diag_minr_code = P.diag_majr_code 
+        AND D.use_indc='Y' 
+            
+	GROUP BY
+	    orgcode,
+	    orgnm,
+	    P.diag_majr_code,
+	    diag_desc,
+	    sum_rgdt_date
+	    
+	ORDER BY score	    
+	
+	]]>	
+	
+	
+	</select>
+	
+	<!-- ver3.5 부서 : 진단항목 대분류 정책 건수  점수 -->
+	<select id="dashboard.orgBuseoDiagMajrPolscore" parameterClass="dashSearchVO" resultClass="egovMap">
+	<![CDATA[
+	
+	SELECT
+	    coalesce(to_char(to_date(S.sum_rgdt_date, 'YYYYMMDD'), 'YYYY-MM-DD'), 
+	    	to_char(to_date( (select to_char((current_date - 1), 'YYYYMMDD')),  'YYYYMMDD'), 'YYYY-MM-DD')) sumrgdt,
+	    A.orgcode,
+	    A.orgnm,
+	    P.diag_majr_code diagmajrcode,
+	    D.diag_desc,
+	    coalesce(sum(S.tot_count), 0) count,
+	    coalesce(trunc(round(AVG(S.avg), 3)), 100)  score,
+       /* CASE                                            
+            WHEN coalesce(ROUND(AVG(S.avg)), 100) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호'                                            
+            ELSE '취약'                                  
+        END idxstatus*/
+        CASE WHEN coalesce(trunc(round(AVG(S.avg), 3)), 100)) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+			CASE WHEN coalesce(trunc(round(AVG(S.avg), 3)), 100)< (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				AND coalesce(trunc(round(AVG(S.avg), 3)), 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+			END
+		END idxstatus
+    FROM
+	(
+		SELECT
+		    G.org_code orgcode,
+		    G.org_nm orgnm          
+		FROM
+		    "nx_org_group" G          
+		WHERE G.use_indc='1' AND
+		    G.upper_org_code =  #org_upper#        
+		ORDER BY
+		    G.org_order   
+	) A
+	     
+	INNER JOIN buseo_pol_sum_info S 
+		ON S.org_code=A.orgcode 
+		AND S.sum_rgdt_date in( select to_char((current_date - 1), 'YYYYMMDD') ) 
+		AND S.pol_idx_id in (
+			select sec_pol_id from pol_idx
+			where diag_majr_code=#majCode# AND use_indc='Y'
+		) 
+		                      
+	LEFT JOIN pol_idx P 
+        ON P.sec_pol_id=S.pol_idx_id 
+        AND P.use_indc='Y'   
+        
+	LEFT JOIN diag_item_code D 
+        ON D.diag_minr_code = P.diag_majr_code 
+        AND D.use_indc='Y' 
+            
+	GROUP BY
+	    orgcode,
+	    orgnm,
+	    P.diag_majr_code,
+	    diag_desc,
+	    sum_rgdt_date
+	    
+	ORDER BY score	    
+	
+	]]>	
+	
+	
+	</select>	
+	
+	<!-- ver3.0 개인 : 진단항목 정책 전체건수 양호건수 취약건수 -->
+	<select id="dashboard.perDiagPolsumcount" parameterClass="dashSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[	
+	
+	SELECT 
+	coalesce(sum(totcount), 0) tot, 
+	coalesce(sum(good), 0) goodness, 
+	coalesce(sum(week), 0) weekness
+	FROM
+	(
+		SELECT 
+			sum(idxcount) totcount,
+			max(CASE WHEN idxstatus = '양호' then idxcount else 0  END) as good,
+			max(CASE WHEN idxstatus = '취약' then idxcount else 0  END) as week
+	
+		FROM(
+			SELECT idxstatus, count(idxstatus) as idxcount 
+			FROM (
+	
+	
+			    SELECT
+				to_char(to_date(I.idx_rgdt_date, 'YYYYMMDD'),'YYYY-MM-DD') idxrgdtdate,
+				I.emp_no empno,                
+				(
+				    SELECT EMP_NM FROM nx_org_user WHERE EMP_NO= #emp_no#
+				) empnm,         
+				P.sec_pol_desc descname,
+				I.count,
+				I.score,
+				/*CASE                               
+				    WHEN coalesce(I.score, 100) >= (SELECT CAST(code_desc as int) FROM "code_info" WHERE majr_code='C02' AND minr_code='01') THEN '양호'                          
+				    ELSE '취약'                         
+				END idxstatus,*/
+				CASE WHEN coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') THEN '양호' ELSE
+					CASE WHEN coalesce(I.score, 100) < (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='GOD') 
+				      AND coalesce(I.score, 100) >= (SELECT code_desc::integer FROM code_info WHERE majr_code='C04' AND minr_code='WAN') THEN '주의' ELSE '취약' 
+				    END
+				END idxstatus,        
+				CASE 
+					WHEN  I.appr_id IS NULL THEN 'Y' 
+					ELSE 'N' 
+				END is_apprstatus_txt	
+			    FROM "pol_idx" P
+				
+				LEFT JOIN "nx_user_idx_info" I ON I.pol_idx_id = P.sec_pol_id
+					AND I.emp_no = #emp_no#
+					AND I.idx_rgdt_date in ( select to_char((current_date - 1), 'YYYYMMDD')  )
+			    WHERE
+					1=1         
+					AND P.diag_majr_code = #majCode#         
+					AND P.use_indc='Y'     
+	
+			) A
+			GROUP BY idxstatus
+		) B
+		GROUP BY idxstatus
+	) C	
+	
+	]]>
+	</select>
+	
+	
+	<!-- ver3.0 추이그래프 구간 MINDATE MAXDATE && 추이그래프 기준값 조회-->
+	<select id="dashboard.minMaxdate" parameterClass="dashSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[	
+	SELECT
+	(SELECT to_char(to_date(MIN(idx_rgdt_date), 'YYYYMMDD') - 1, 'YYYY-MM-DD')
+		FROM nx_user_idx_info_day
+		WHERE idx_rgdt_date >= to_char(CURRENT_DATE - INTERVAL '3 MONTHS', 'YYYYMMDD')) minday
+	,(SELECT to_char(to_date(MAX(idx_rgdt_date), 'YYYYMMDD') + 1, 'YYYY-MM-DD')
+		FROM nx_user_idx_info_day
+		WHERE idx_rgdt_date >= to_char(CURRENT_DATE - INTERVAL '3 MONTHS', 'YYYYMMDD')) maxday
+	,(SELECT to_char(to_date(MIN(idx_rgdt_date), 'YYYYMMDD'), 'YYYY-MM-DD')
+		FROM nx_user_idx_info_day
+		WHERE idx_rgdt_date >= to_char(CURRENT_DATE - INTERVAL '3 MONTHS', 'YYYYMMDD')) mindate
+	,(SELECT to_char(to_date(MAX(idx_rgdt_date), 'YYYYMMDD'), 'YYYY-MM-DD')
+		FROM nx_user_idx_info_day
+		WHERE idx_rgdt_date >= to_char(CURRENT_DATE - INTERVAL '3 MONTHS', 'YYYYMMDD')) maxdate	
+	,(SELECT CAST(code_desc as int) 
+		FROM "code_info" 
+		WHERE majr_code='C03' AND minr_code='01') basepoint
+	]]>
+	</select>
+	
+	<!-- 
+	<select id="dashboard.minMaxdate" parameterClass="dashSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[	
+	
+	SELECT 
+		to_char(to_date(minday::varchar, 'YYYYMMDD'), 'YYYY-MM-DD') minday,
+		to_char(to_date(maxday::varchar, 'YYYYMMDD'), 'YYYY-MM-DD') maxday,
+		(
+			SELECT
+			CAST(code_desc as int) 
+			FROM
+			"code_info" 
+			WHERE
+			majr_code='C03' 
+			AND minr_code='01'
+		) basepoint			
+	FROM
+	(
+		SELECT 
+		to_char(current_date - interval '3 months', 'YYYYMMDD')::int - to_char((current_date -1) - interval '3 months', 'D')::int as minday,
+		to_char((current_date - 1), 'YYYYMMDD')::int maxday
+	) A	
+	
+	]]>
+	</select>
+	-->
+	<!-- 부서의 총 건수, 총 평균-->
+	<select id="dashboard.getTotalBuseoIdxCount" parameterClass="java.util.HashMap" resultClass="userIdxInfoCurrVO">
+		select  T1.org_code diag_majr_code , T1.org_nm diag_desc, T1.tot_count count, 
+		
+		<isEqual property="type" compareValue="B">
+		'ALL' buseo_indc,
+		</isEqual>
+		<isEqual property="type" compareValue="P">
+		'P' buseo_indc,
+		</isEqual>
+		
+		 T2.avg score,  T2.avg avg_score from
+		(
+			select org_code , org_nm , sum(tot_count) tot_count
+		from nx_pol_sum_info
+		where  org_code = #orgCode#
+		AND sum_rgdt_date =(SELECT to_char((current_date -1),'YYYYMMDD'))
+		group by org_nm, org_code
+		) T1
+		LEFT JOIN nx_org_sum_info T2
+		ON T2.org_code = T1.org_code
+		AND T2.sum_rgdt_date =(SELECT to_char((current_date -1),'YYYYMMDD'))
+	</select>
+	
+	<select id="dashboard.perDiagMajrOrgPolscore" parameterClass="dashSearchVO" resultClass="egovMap">
+		
+		select
+	        T1.org_code diag_majr_code ,
+	        T1.org_nm diag_desc,
+	        coalesce(T1.count, 0) count,
+	        'ALL' buseo_indc,
+	        coalesce(T2.avg,100) score,
+	        coalesce(T2.avg,100) avg_score   
+	    from
+	        ( select
+	            A.org_code ,
+	            A.org_nm,
+	            sum(B.tot_count) count 
+	        from
+	            ( SELECT
+	                G.org_code org_code,
+	                G.org_nm org_nm            
+	            FROM
+	                "nx_org_group" G            
+	            WHERE
+	                G.use_indc='1'          
+	                AND upper_org_code =#majCode#        
+	            ORDER BY
+	                G.org_order) A   
+	        LEFT JOIN
+	            nx_pol_sum_info B   
+	                ON A.org_code = B.org_code   
+	                AND B.sum_rgdt_date =to_char(current_date -1,
+	            'YYYYMMDD')   
+	        group by
+	            A.org_code,
+	            A.org_nm ) T1   
+	        LEFT JOIN
+	            nx_total_sum_info T2   
+	                ON T2.org_code = T1.org_code   
+	                AND T2.sum_rgdt_date =(
+	                    SELECT
+	                        to_char((current_date -1),
+	                        'YYYYMMDD')
+	                )  
+	</select>
+	
+	<select id="dashboard.perDiagMajrUserPolscore" parameterClass="dashSearchVO" resultClass="egovMap">
+		select T1.emp_no diag_majr_code , T1.org_nm diag_desc, coalesce(T1.count, 0) count, 'P' buseo_indc,  coalesce(T2.score, 100) score,  coalesce(T2.score, 100) avg_score
+		from ( select B.emp_no , sum(B.count) count, A.org_nm from ( SELECT
+						G.emp_no org_code, 
+						G.emp_nm org_nm   
+				    FROM "nx_org_user" G   
+				    WHERE G.stat='1' 
+				    AND org_code =#majCode#
+				     ORDER BY G.level_code) A
+		LEFT JOIN nx_user_idx_info B
+		ON A.org_code = B.emp_no
+		AND B.idx_rgdt_date =to_char(current_date -1,'YYYYMMDD')
+		group by B.emp_no, A.org_nm ) T1
+		LEFT JOIN nx_user_idx_info_day T2
+		ON T2.emp_no = T1.emp_no
+		AND T2.idx_rgdt_date =(SELECT to_char((current_date -1),'YYYYMMDD'))
+	</select>
+	
+	
+	<!-- 조직장 사번 조회 -->
+	<select id="dashboard.getOrgCapNo" parameterClass="java.lang.String"  resultClass="java.lang.String" >
+ 	<![CDATA[
+		SELECT 
+			org_cap_no
+		FROM "nx_org_group" 
+		WHERE ORG_CODE = #dflag# 
+ 	]]>
+ 	</select>
+	
+</sqlMap>

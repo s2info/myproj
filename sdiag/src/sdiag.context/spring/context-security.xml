@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:egov-security="http://www.egovframe.go.kr/schema/egov-security"
+	xmlns:security="http://www.springframework.org/schema/security"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+		http://www.egovframe.go.kr/schema/egov-security http://www.egovframe.go.kr/schema/egov-security/egov-security-3.0.xsd
+		http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.2.xsd">
+		
+	<security:http pattern="/css/**" security="none"/>    
+    <security:http pattern="/img/**" security="none"/>
+ 	<security:http pattern="/js/**" security="none"/>
+ 	<security:http pattern="\A/WEB-INF/jsp/.*\Z" request-matcher="regex" security="none"/> 	
+	
+	<egov-security:config id="securityConfig" 
+		loginUrl="/loginPage.do?login_error=0"
+		logoutSuccessUrl="/index.jsp"
+		loginFailureUrl="/loginPage.do?login_error=-99" 
+		accessDeniedUrl="/common/access_denied.jsp" 
+		
+		
+		dataSource="dataSource"
+		jdbcUsersByUsernameQuery="
+				SELECT U.emp_no USER_ID
+					,'Pqh6Vto4RLQg7CklrpIrxzHsFqT8RNy+r9rUmw5h05w=' AS PASSWORD
+					, 1 ENABLED
+					, U.emp_nm USER_NM
+					, U.email USER_EMAIL
+					, '' TEL_NO
+					, '0000' MOBLPHON_NO
+					, '' USER_ZIP
+					, '' USER_ADRES
+					, '' USER_DETAIL_ADRES
+					, coalesce(C.code_desc, 'ROLE_USER') AUTHOR_CODE
+					, coalesce(R.user_auth, '3') AUTHOR_CD 
+					, coalesce(U.title_code, '') TITLE_CODE
+					, coalesce(U.org_code, '') ORG_CODE
+					, coalesce(U.title_nm, '') TITLE_NAME
+					, coalesce(U.level_code, '') LEVEL_CODE
+					, coalesce(U.level_nm, '') LEVEL_NAME
+					, coalesce(R.email_indc, 'N') IS_EMAIL
+					, coalesce(R.ip, '') IP
+					, coalesce(R.mac, '') MAC
+					, coalesce(R.emp_indc, '') IS_EMP
+					, CASE WHEN (SELECT Count(*) FROM proxy P WHERE P.proxy_emp_no=U.emp_no) > 0 THEN 'Y' ELSE 'N' END IS_PROXY
+					, CASE WHEN (SELECT Count(*) FROM proxy p LEFT JOIN nx_org_user pu on p.emp_no=pu.emp_no WHERE p.proxy_emp_no=u.emp_no AND coalesce(pu.title_code, '999') BETWEEN '001' AND  '006' ) > 0 THEN 'Y' ELSE 'N' END IS_PROXY_DIRECTOR
+				FROM nx_org_user U 
+				LEFT JOIN user_info R ON U.emp_no=R.id AND R.isused='Y'
+				LEFT JOIN code_info C ON C.minr_code = R.user_auth AND C.majr_code = 'AU1'
+				WHERE U.emp_no = ?"
+		jdbcAuthoritiesByUsernameQuery="
+				SELECT U.emp_no USER_ID
+					,coalesce(C.code_desc, 'ROLE_USER') AUTHOR_CODE
+					FROM nx_org_user U 
+					LEFT JOIN user_info R ON U.emp_no=R.id AND R.isused='Y'
+					LEFT JOIN code_info C ON C.minr_code = R.user_auth AND C.majr_code = 'AU1'
+					WHERE U.emp_no = ?"
+		jdbcMapClass="sdiag.com.security.SdiagSessionMapping"
+		
+		requestMatcherType="regex"
+		hash="sha-256"
+		hashBase64="true"
+		
+		concurrentMaxSessons="10"
+		concurrentExpiredUrl="/index.jsp?concurrent-expired=true"
+		
+		defaultTargetUrl="/member/actionmain.do"
+	/>
+
+	<egov-security:secured-object-config id="securedObjectConfig"
+		roleHierarchyString="
+				ROLE_ADMIN > ROLE_MANAGER
+				ROLE_MANAGER > ROLE_USER
+				ROLE_USER > IS_AUTHENTICATED_ANONYMOUSLY"
+		sqlRolesAndUrl="
+				SELECT A.url URL, C.code_desc AUTHORITY
+				FROM auth_url_list A 
+				INNER JOIN code_info C ON C.minr_code=A.auth_code_cd AND C.majr_code='AU1'"
+	/>
+
+	<egov-security:initializer id="initializer"  
+		supportPointcut="false"
+		supportMethod="false"
+	/>
+		
+</beans>

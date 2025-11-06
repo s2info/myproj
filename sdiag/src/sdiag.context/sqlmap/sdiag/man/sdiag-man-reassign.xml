@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="reassign">
+	<typeAlias alias="reassignSearchVO" type="sdiag.man.service.ReassignSearchVO"/>
+	<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias alias="reassignInfoVO" type="sdiag.man.service.ReassignInfoVO"/>
+
+	<!-- 담당자 조회 -->
+	<select id='reassign.getSearchUserList' parameterClass="java.util.HashMap" resultClass="egovMap">
+	<![CDATA[
+ 		SELECT emp_no empno,
+ 		       emp_nm empnm,
+ 		       fn_nx_get_userorgname(org_code) posnm
+ 		FROM nx_org_user
+ 		WHERE is_collabor='N' 		
+	]]>
+	<isNotEmpty property="searchKeyword">
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+			emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+			emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>		
+		<isEqual prepend="AND" property="searchCondition" compareValue="3">
+			emp_no LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="4">
+			emp_nm LIKE CONCAT('%',#searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+	<![CDATA[
+	
+ 	]]>
+	</select>
+	
+	<!-- 협력사 리스트 조회 -->
+	<select id='reassign.getKpSerachList' parameterClass="reassignSearchVO" resultClass="reassignInfoVO">
+ 		SELECT 
+ 			emp_no as kpEmpNo
+ 			, emp_nm as kpEmpNm
+ 			, kt_emp_no ktEmpNo
+ 			, (select emp_nm from nx_org_user where emp_no = kt_emp_no) ktEmpNm
+ 			, user_biz_name as userBizNm
+ 			, proxy_emp_no as reEmpNo  
+ 			, (select emp_nm from nx_org_user where emp_no = proxy_emp_no) as reEmpNm
+ 			, (select  code_desc from code_info where majr_code ='KPC' and minr_code = user_type) as cType
+  		FROM pov_org_hpt_user
+  		where status_cd ='1'
+  		AND company_cd ='1001'
+	<isNotEmpty property="c_condition">
+		<isEqual prepend="AND" property="c_condition" compareValue="1">
+			emp_no = #c_searchKeyword#
+		</isEqual>
+		<isEqual prepend="AND" property="c_condition" compareValue="2">
+			emp_nm LIKE CONCAT('%',#c_searchKeyword#,'%')
+		</isEqual>		
+	</isNotEmpty>
+	<isNotEmpty property="s_cType">
+			AND user_type = #s_cType#
+	</isNotEmpty>
+	<isNotEmpty property="kt_searchKeyword">
+			AND kt_emp_no = #kt_searchKeyword#
+	</isNotEmpty>
+	<isNotEmpty property="re_searchKeyword">
+			AND proxy_emp_no = #re_searchKeyword#
+	</isNotEmpty>
+		
+		ORDER BY emp_no, kt_emp_no
+	</select>
+	
+	<!-- 개인별 협력사 담당자 재지정 -->
+ 	<update id="reassign.setProxyEmpNoSave"  parameterClass="reassignInfoVO">
+		UPDATE pov_org_hpt_user
+	   	SET 
+	   		updt_emp_no = #updtEmpNo#
+	   		, updt_date=NOW()
+	   		, proxy_emp_no=#reEmpNo#
+	 	WHERE emp_no = #kpEmpNo#
+ 	</update>
+ 	
+ 	<!-- 개인별 협력사 담당자 초기화 -->
+ 	<update id="reassign.setProxyEmpNoDelete"  parameterClass="reassignInfoVO">
+		UPDATE pov_org_hpt_user
+	   	SET 
+	   		updt_emp_no = #updtEmpNo#
+	   		, updt_date=NOW()
+	   		, proxy_emp_no=''
+	 	WHERE emp_no = #kpEmpNo#
+ 	</update>
+ 	
+ 	
+ 	<!-- 유형별 담당자 정보 저장 -->
+ 	<insert id="reassign.setTypeReassignInsert"  parameterClass="reassignInfoVO">
+		INSERT INTO type_reassign(
+            kt_emp_no, collabor_code, re_emp_no, rgdt_date, rgdt_emp_no, 
+            updt_date, updt_emp_no)
+   		 VALUES ( #ktEmpNo#, #cType#,#reEmpNo#, now(), #rgdtEmpNo#, 
+            now(), #updtEmpNo#);
+ 	</insert>
+ 	
+ 	<!-- 유형별 담당자 정보 수정 -->
+ 	<update id="reassign.setTypeReassignUpdate"  parameterClass="reassignInfoVO">
+		UPDATE type_reassign
+	   	SET 
+	   		updt_emp_no = #updtEmpNo#
+	   		, updt_date=NOW()
+	   		, re_emp_no= #reEmpNo#
+	 	WHERE kt_emp_no = #ktEmpNo#
+	 	AND collabor_code = #cType#
+ 	</update>
+ 	
+ 	<!-- 유형별 담당자 정보 삭제 -->
+ 	<delete id="reassign.setTypeReassignDelete"  parameterClass="reassignInfoVO">
+		DELETE FROM  type_reassign
+		WHERE kt_emp_no = #ktEmpNo#
+	 	AND collabor_code = #cType#
+	 	AND re_emp_no= #reEmpNo#
+ 	</delete>
+ 	
+ 	<!-- 유형별 담당자 정보 조회 -->
+ 	<select id="reassign.getTypeReassignList" parameterClass="reassignSearchVO" resultClass="reassignInfoVO">
+ 	<![CDATA[
+	 	SELECT   T1.kt_emp_no ktEmpNo, 
+			(SELECT code_desc
+				FROM code_info   
+				WHERE majr_code= 'KPC' 
+	        	AND use_indc='Y'    
+	        	AND  minr_code = T1.collabor_code) cType, 
+	        T1.re_emp_no reEmpNo, 
+	        replace(T1.collabor_code, ' ', '') collaborCode,
+	        TO_CHAR(T1.rgdt_date, 'YYYY-mm-dd') rgdtDate, 
+	        T1.rgdt_emp_no rgdtEmpNo, 
+	        TO_CHAR(T1.updt_date, 'YYYY-mm-dd' ) updtDate, 
+	        T1.updt_emp_no updtEmpNo, 
+	        T2.emp_nm ktEmpNm, 
+	        T2.posn_nm ktPosnNm, 
+	        T3.emp_nm reEmpNm , 
+	        T3.posn_nm rePosnNm 
+		FROM type_reassign T1, nx_org_user T2, nx_org_user T3
+        WHERE T1.kt_emp_no = T2.emp_no
+        AND T1.re_emp_no = t3.emp_no
+    ]]>
+    <isNotEmpty property="c_searchKeyword">
+		<isEqual prepend="AND" property="c_condition" compareValue="1">
+			T1.kt_emp_no IN (SELECT emp_no FROM nx_org_user WHERE emp_nm LIKE CONCAT('%',#c_searchKeyword#,'%'))
+		</isEqual>
+		<isEqual prepend="AND" property="c_condition" compareValue="2">
+			T1.kt_emp_no LIKE CONCAT('%',#c_searchKeyword#,'%')
+		</isEqual>		
+		<isEqual prepend="AND" property="c_condition" compareValue="3">
+			T1.re_emp_no IN (SELECT emp_no FROM nx_org_user WHERE emp_nm LIKE CONCAT('%',#c_searchKeyword#,'%'))
+		</isEqual>
+		<isEqual prepend="AND" property="c_condition" compareValue="4">
+			T1.re_emp_no LIKE CONCAT('%',#c_searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+	   	ORDER BY T1.updt_date desc
+	 	LIMIT #recordCountPerPage# OFFSET #firstIndex#;
+	</select>
+	
+	
+	<!-- 유형별 담당자 정보 조회 -->
+ 	<select id='reassign.getTypeReassignListTotalCount' parameterClass="reassignSearchVO" resultClass="int">
+ 	<![CDATA[
+	 	SELECT  count(T1.kt_emp_no)
+		FROM type_reassign T1, nx_org_user T2, nx_org_user T3
+        WHERE T1.kt_emp_no = T2.emp_no
+        AND T1.re_emp_no = t3.emp_no
+    ]]>
+    <isNotEmpty property="c_searchKeyword">
+		<isEqual prepend="AND" property="c_condition" compareValue="1">
+			T1.kt_emp_no IN (SELECT emp_no FROM nx_org_user WHERE emp_nm LIKE CONCAT('%',#c_searchKeyword#,'%'))
+		</isEqual>
+		<isEqual prepend="AND" property="c_condition" compareValue="2">
+			T1.kt_emp_no LIKE CONCAT('%',#c_searchKeyword#,'%')
+		</isEqual>		
+		<isEqual prepend="AND" property="c_condition" compareValue="3">
+			T1.re_emp_no IN (SELECT emp_no FROM nx_org_user WHERE emp_nm LIKE CONCAT('%',#c_searchKeyword#,'%'))
+		</isEqual>
+		<isEqual prepend="AND" property="c_condition" compareValue="4">
+			T1.re_emp_no LIKE CONCAT('%',#c_searchKeyword#,'%')
+		</isEqual>
+	</isNotEmpty>
+	   
+	</select>
+	
+	<!-- 유형별 담당자 정보 조회 -->
+ 	<select id='reassign.getTypeReassignInfoCount' parameterClass="reassignInfoVO" resultClass="int">
+ 	<![CDATA[
+	 	SELECT  count(kt_emp_no)
+		FROM type_reassign
+		WHERE kt_emp_no = #ktEmpNo#
+		AND collabor_code = #cType#
+	  ]]>
+	  <isNotEmpty property="reEmpNo">
+	  	AND re_emp_no = #reEmpNo#
+	  </isNotEmpty>
+	</select>
+	
+	<!-- 유형별 담당자 정보 조회 -->
+ 	<select id="reassign.getReassignInfo" parameterClass="reassignInfoVO" resultClass="reassignInfoVO">
+ 	<![CDATA[
+	 	SELECT   T1.kt_emp_no ktEmpNo, 
+	        T1.re_emp_no reEmpNo, 
+	        replace(T1.collabor_code, ' ','')    cType,
+	        TO_CHAR(T1.rgdt_date, 'YYYY-mm-dd') rgdtDate, 
+	        T1.rgdt_emp_no rgdtEmpNo, 
+	        TO_CHAR(T1.updt_date, 'YYYY-mm-dd' ) updtDate, 
+	        T1.updt_emp_no updtEmpNo, 
+	        T2.emp_nm ktEmpNm, 
+	        T2.posn_nm ktPosnNm, 
+	        T3.emp_nm reEmpNm , 
+	        T3.posn_nm rePosnNm 
+		FROM type_reassign T1, nx_org_user T2, nx_org_user T3
+        WHERE T1.kt_emp_no = T2.emp_no
+        AND T1.re_emp_no = t3.emp_no
+        AND T1.kt_emp_no = #ktEmpNo#
+        AND T1.re_emp_no = #reEmpNo#
+        AND T1.collabor_code = #cType#
+        ]]>
+	</select>
+</sqlMap>

@@ -1,0 +1,861 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+<sqlMap namespace="statistic">
+		
+<typeAlias alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+<typeAlias alias="statResultVO" type="sdiag.stat.service.StatisticResultVO"/>
+<typeAlias alias="statSearchVO" type="sdiag.stat.service.StatisticSearchVO"/>
+	<!-- 정책리스트 조회 -->
+	<select id="statistic.getPolicyTitleList" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+	SELECT
+		 P.diag_majr_code majcode
+		,D1.diag_desc majdesc
+		,P.diag_minr_code mincode
+		,D2.diag_desc mindesc
+	    ,PI.policy_id policyid     
+	    ,PI.policy_name policyname
+	    ,D1.buseo_indc buseoindc    
+	FROM "policy_info" PI 
+	LEFT JOIN pol_idx P ON PI.policy_id = P.sec_pol_id
+	LEFT JOIN diag_item_code D1 ON P.diag_majr_code=D1.diag_majr_code AND D1.diag_majr_code=D1.diag_minr_code
+	LEFT JOIN diag_item_code D2 ON P.diag_majr_code=D2.diag_majr_code AND P.diag_minr_code=D2.diag_minr_code
+	WHERE PI.idx_indc=true AND D1.buseo_indc='N' 
+	ORDER BY P.diag_majr_code, P.diag_minr_code , PI.policy_id; 
+	]]>
+	</select>
+	<!-- 최근 날짜 조회 -->
+	<select id="statistic.getPolicyfactLastDate" resultClass="java.lang.String">
+	<![CDATA[
+	SELECT DISTINCT to_char(coalesce(MAX(event_date), NOW()), 'YYYY-MM-DD') LastDate
+	FROM "policyfact"
+	]]>
+	</select>
+	<!-- 정책별 조직통계 조회 -->
+	<select id="statistic.getPolictfactInfoOrgResult" parameterClass="statSearchVO" resultClass="statResultVO">
+	<![CDATA[
+	SELECT 
+		#begindate# || ' ~ ' ||  #enddate# period
+	      , a.policy_id
+	      , b.sec_pol_desc
+	      , coalesce(c.org_nm_1, '') org_nm_1
+	      , coalesce(c.org_nm_2, '') org_nm_2
+	      , coalesce(c.org_nm_3, '') org_nm_3
+	      , coalesce(c.org_nm_4, '') org_nm_4
+	      , coalesce(c.org_nm_5, '') org_nm_5
+	      , coalesce(c.org_nm_6, '') org_nm_6
+	      , sum(a.event_count) tot_event 
+	FROM policyfact a
+	JOIN pol_idx b on a.policy_id = b.sec_pol_id
+	JOIN nx_org_user_hier c on a.sldm_empno = c.emp_no
+	JOIN nx_org_user d on a.sldm_empno = d.emp_no
+	INNER JOIN (
+		WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+		AS
+		(
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+		       	FROM "nx_org_group" g     
+		       	WHERE g.org_code=#upperOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+			FROM "nx_org_group" g
+			WHERE g.upper_org_code=#upperOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+			FROM "nx_org_group" g, LIST sb
+			WHERE g.upper_org_code=sb.org_code
+		)
+		SELECT distinct unnest(PATH) org_code
+		FROM LIST L
+   		) OL ON d.org_code=OL.org_code
+	WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+	and a.policy_id = #policyid#
+	group by  c.org_nm_1, c.org_nm_2, c.org_nm_3, c.org_nm_4, c.org_nm_5, c.org_nm_6, a.policy_id, b.sec_pol_desc
+	order by tot_event desc
+	LIMIT #recordCountPerPage# OFFSET #firstIndex#
+	]]>
+	</select>
+	
+	<!-- 정책별 조직통계 (전체조회수)  -->
+	<select id="statistic.getPolictfactInfoOrgTotalCount" 	parameterClass="statSearchVO" resultClass="int">
+	<![CDATA[
+	WITH LIST(item)AS
+	(
+		SELECT 
+			1
+		FROM policyfact a
+		JOIN pol_idx b on a.policy_id = b.sec_pol_id
+		JOIN nx_org_user_hier c on a.sldm_empno = c.emp_no
+		JOIN nx_org_user d on a.sldm_empno = d.emp_no
+		INNER JOIN (
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+			AS
+			(
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+			       	FROM "nx_org_group" g     
+			       	WHERE g.org_code=#upperOrgCode#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.upper_org_code=#upperOrgCode#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+				FROM "nx_org_group" g, LIST sb
+				WHERE g.upper_org_code=sb.org_code
+			)
+			SELECT distinct unnest(PATH) org_code
+			FROM LIST L
+	   		) OL ON d.org_code=OL.org_code
+		WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+		and a.policy_id = #policyid#
+		group by  c.org_nm_1, c.org_nm_2, c.org_nm_3, c.org_nm_4, c.org_nm_5, c.org_nm_6, a.policy_id, b.sec_pol_desc
+	)SELECT COUNT(item) FROM LIST;
+	]]>
+	</select>
+	 
+	<select id="statistic.getPolictfactInfoOrgForExportExcel" parameterClass="statSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+	SELECT 
+		#begindate# || ' ~ ' ||  #enddate# period
+	      , a.policy_id
+	      , b.sec_pol_desc
+	      , coalesce(c.org_nm_1, '') org_nm_1
+	      , coalesce(c.org_nm_2, '') org_nm_2
+	      , coalesce(c.org_nm_3, '') org_nm_3
+	      , coalesce(c.org_nm_4, '') org_nm_4
+	      , coalesce(c.org_nm_5, '') org_nm_5
+	      , coalesce(c.org_nm_6, '') org_nm_6
+	      , sum(a.event_count) tot_event 
+	FROM policyfact a
+	JOIN pol_idx b on a.policy_id = b.sec_pol_id
+	JOIN nx_org_user_hier c on a.sldm_empno = c.emp_no
+	JOIN nx_org_user d on a.sldm_empno = d.emp_no
+	INNER JOIN (
+		WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+		AS
+		(
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+		       	FROM "nx_org_group" g     
+		       	WHERE g.org_code=#upperOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+			FROM "nx_org_group" g
+			WHERE g.upper_org_code=#upperOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+			FROM "nx_org_group" g, LIST sb
+			WHERE g.upper_org_code=sb.org_code
+		)
+		SELECT distinct unnest(PATH) org_code
+		FROM LIST L
+   		) OL ON d.org_code=OL.org_code
+	WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+	and a.policy_id = #policyid#
+	group by  c.org_nm_1, c.org_nm_2, c.org_nm_3, c.org_nm_4, c.org_nm_5, c.org_nm_6, a.policy_id, b.sec_pol_desc
+	order by tot_event desc
+	]]>
+	</select>
+	 
+	 
+	 <!-- 정책별 조직통계 조회 
+	<select id="statistic.getPolictfactInfoOrgResult" parameterClass="statSearchVO" resultClass="statResultVO">
+	<![CDATA[
+	WITH LIST(empno, policy_id, tot_event)
+		AS(
+		SELECT 
+			a.sldm_empno,
+			a.policy_id ,
+			sum(a.event_count) tot_event   
+		FROM policyfact a
+		JOIN nx_org_user d 
+		            on a.sldm_empno = d.emp_no  
+		INNER JOIN
+		        (
+		            WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)   AS   (    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]                
+		            FROM
+		                "nx_org_group" g                
+		            WHERE
+		                g.org_code= #upperOrgCode#
+		            UNION
+		            ALL    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]    
+		            FROM
+		                "nx_org_group" g    
+		            WHERE
+		                g.upper_org_code= #upperOrgCode#   
+		            UNION
+		            ALL    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                LEVEL + 1,
+		                CAST(g.org_code as text) || sb.PATH     
+		            FROM
+		                "nx_org_group" g,
+		                LIST sb    
+		            WHERE
+		                g.upper_org_code=sb.org_code   )   SELECT
+		                distinct unnest(PATH) org_code   
+		            FROM
+		                LIST L      
+		        ) OL 
+		            ON d.org_code=OL.org_code              
+		WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+		        and a.policy_id =   #policyid#
+		group by a.policy_id
+		order by tot_event DESC
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#   
+		)SELECT 
+		 	    #begindate# || ' ~ ' ||  #enddate# period,
+		        a.policy_id ,
+		        b.sec_pol_desc ,
+		        coalesce(c.org_nm_1, '') org_nm_1,
+		        coalesce(c.org_nm_2, '') org_nm_2,
+		        coalesce(c.org_nm_3, '') org_nm_3,
+		        coalesce(c.org_nm_4, '') org_nm_4,
+		        coalesce(c.org_nm_5, '') org_nm_5,
+		        coalesce(c.org_nm_6, '') org_nm_6,
+		        a.tot_event
+		FROM LIST a
+		LEFT JOIN
+		        pol_idx b 
+		            on a.policy_id = b.sec_pol_id  
+		LEFT JOIN
+		        nx_org_user_hier c 
+		            on a.empno = c.emp_no 
+		LEFT JOIN
+		        nx_org_user d 
+		            on a.empno = d.emp_no
+		order by tot_event DESC
+	]]>
+	</select>-->
+	
+	<!-- 정책별 조직통계 (전체조회수)  
+	<select id="statistic.getPolictfactInfoOrgTotalCount" 	parameterClass="statSearchVO" resultClass="int">
+	<![CDATA[
+	WITH LIST(item) AS
+	(
+			SELECT 
+				1 
+			FROM policyfact a
+			JOIN nx_org_user d 
+			            on a.sldm_empno = d.emp_no  
+			INNER JOIN
+			        (
+			            WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)   AS   (    SELECT
+			                g.org_code,
+			                g.upper_org_code,
+			                g.org_nm,
+			                0,
+			                ARRAY[CAST(g.org_code as text)]                
+			            FROM
+			                "nx_org_group" g                
+			            WHERE
+			                g.org_code=#upperOrgCode#    
+			            UNION
+			            ALL    SELECT
+			                g.org_code,
+			                g.upper_org_code,
+			                g.org_nm,
+			                0,
+			                ARRAY[CAST(g.org_code as text)]    
+			            FROM
+			                "nx_org_group" g    
+			            WHERE
+			                g.upper_org_code= #upperOrgCode# 
+			            UNION
+			            ALL    SELECT
+			                g.org_code,
+			                g.upper_org_code,
+			                g.org_nm,
+			                LEVEL + 1,
+			                CAST(g.org_code as text) || sb.PATH     
+			            FROM
+			                "nx_org_group" g,
+			                LIST sb    
+			            WHERE
+			                g.upper_org_code=sb.org_code   )   SELECT
+			                distinct unnest(PATH) org_code   
+			            FROM
+			                LIST L      
+			        ) OL 
+			            ON d.org_code=OL.org_code              
+			WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+			        and a.policy_id =  #policyid#
+			group by a.policy_id
+	)SELECT count(item) FROM LIST	
+	]]>
+	</select>-->
+	<!-- 
+	<select id="statistic.getPolictfactInfoOrgForExportExcel" parameterClass="statSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+	WITH LIST(empno, policy_id, tot_event)
+		AS(
+		SELECT 
+			a.sldm_empno,
+			a.policy_id ,
+			sum(a.event_count) tot_event   
+		FROM policyfact a
+		JOIN nx_org_user d 
+		            on a.sldm_empno = d.emp_no  
+		INNER JOIN
+		        (
+		            WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)   AS   (    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]                
+		            FROM
+		                "nx_org_group" g                
+		            WHERE
+		                g.org_code= #upperOrgCode#
+		            UNION
+		            ALL    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]    
+		            FROM
+		                "nx_org_group" g    
+		            WHERE
+		                g.upper_org_code= #upperOrgCode#   
+		            UNION
+		            ALL    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                LEVEL + 1,
+		                CAST(g.org_code as text) || sb.PATH     
+		            FROM
+		                "nx_org_group" g,
+		                LIST sb    
+		            WHERE
+		                g.upper_org_code=sb.org_code   )   SELECT
+		                distinct unnest(PATH) org_code   
+		            FROM
+		                LIST L      
+		        ) OL 
+		            ON d.org_code=OL.org_code              
+		WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+		        and a.policy_id =   #policyid#
+		group by a.policy_id
+		)SELECT 
+		 	    #begindate# || ' ~ ' ||  #enddate# period,
+		        a.policy_id ,
+		        b.sec_pol_desc ,
+		        coalesce(c.org_nm_1, '') org_nm_1,
+		        coalesce(c.org_nm_2, '') org_nm_2,
+		        coalesce(c.org_nm_3, '') org_nm_3,
+		        coalesce(c.org_nm_4, '') org_nm_4,
+		        coalesce(c.org_nm_5, '') org_nm_5,
+		        coalesce(c.org_nm_6, '') org_nm_6,
+		        a.tot_event
+		FROM LIST a
+		LEFT JOIN
+		        pol_idx b 
+		            on a.policy_id = b.sec_pol_id  
+		LEFT JOIN
+		        nx_org_user_hier c 
+		            on a.empno = c.emp_no 
+		LEFT JOIN
+		        nx_org_user d 
+		            on a.empno = d.emp_no
+		order by tot_event DESC
+	]]>
+	</select>
+	 -->
+	 
+	<!-- 정책별 직원통계 조회 
+	<select id="statistic.getPolictfactInfoUserResult" parameterClass="statSearchVO" resultClass="statResultVO">
+	<![CDATA[
+	SELECT 
+		#begindate# || ' ~ ' ||  #enddate# period
+	      , a.policy_id
+	      , b.sec_pol_desc
+	      , coalesce(c.org_nm_1, '') org_nm_1
+	      , coalesce(c.org_nm_2, '') org_nm_2
+	      , coalesce(c.org_nm_3, '') org_nm_3
+	      , coalesce(c.org_nm_4, '') org_nm_4
+	      , coalesce(c.org_nm_5, '') org_nm_5
+	      , coalesce(c.org_nm_6, '') org_nm_6
+	      , d.emp_no
+		  , d.emp_nm
+	      , sum(a.event_count) tot_event 
+	FROM policyfact a
+	JOIN pol_idx b on a.policy_id = b.sec_pol_id
+	JOIN nx_org_user_hier c on a.sldm_empno = c.emp_no
+	JOIN nx_org_user d on a.sldm_empno = d.emp_no
+	INNER JOIN (
+		WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+		AS
+		(
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+		       	FROM "nx_org_group" g     
+		       	WHERE g.org_code=#upperOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+			FROM "nx_org_group" g
+			WHERE g.upper_org_code=#upperOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+			FROM "nx_org_group" g, LIST sb
+			WHERE g.upper_org_code=sb.org_code
+		)
+		SELECT distinct unnest(PATH) org_code
+		FROM LIST L
+   		) OL ON d.org_code=OL.org_code
+	WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+	and a.policy_id = #policyid#
+	group by c.org_nm_1, c.org_nm_2, c.org_nm_3, c.org_nm_4, c.org_nm_5, c.org_nm_6, a.policy_id, b.sec_pol_desc, d.posn_nm, d.emp_no, d.emp_nm
+	order by tot_event desc
+	LIMIT #recordCountPerPage# OFFSET #firstIndex#
+	]]>
+	</select>
+	-->
+	
+	<!-- 정책별 직원통계 조회 (전체조회수)  
+	<select id="statistic.getPolictfactInfoUserTotalCount" 	parameterClass="statSearchVO" resultClass="int">
+	<![CDATA[
+	WITH LIST(item)AS
+	(
+		SELECT 
+			1
+		FROM policyfact a
+		JOIN pol_idx b on a.policy_id = b.sec_pol_id
+		JOIN nx_org_user_hier c on a.sldm_empno = c.emp_no
+		JOIN nx_org_user d on a.sldm_empno = d.emp_no
+		INNER JOIN (
+			WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+			AS
+			(
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+			       	FROM "nx_org_group" g     
+			       	WHERE g.org_code=#upperOrgCode#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+				FROM "nx_org_group" g
+				WHERE g.upper_org_code=#upperOrgCode#
+				UNION ALL
+				SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+				FROM "nx_org_group" g, LIST sb
+				WHERE g.upper_org_code=sb.org_code
+			)
+			SELECT distinct unnest(PATH) org_code
+			FROM LIST L
+	   		) OL ON d.org_code=OL.org_code
+		WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+		and a.policy_id = #policyid#
+		group by c.org_nm_1, c.org_nm_2, c.org_nm_3, c.org_nm_4, c.org_nm_5, c.org_nm_6, a.policy_id, b.sec_pol_desc, d.posn_nm, d.emp_no, d.emp_nm
+	)SELECT COUNT(item) FROM LIST;
+	]]>
+	</select>
+	-->
+	
+	<!-- 정책별 직원통계 조회 -->
+	<select id="statistic.getPolictfactInfoUserResult" parameterClass="statSearchVO" resultClass="statResultVO">
+	<![CDATA[
+		WITH LIST(empno, policy_id, tot_event)
+		AS(
+		SELECT 
+			a.sldm_empno,
+			a.policy_id ,
+			sum(a.event_count) tot_event   
+		FROM policyfact a
+		JOIN nx_org_user d 
+		            on a.sldm_empno = d.emp_no  
+		INNER JOIN
+		        (
+		            WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)   AS   (    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]                
+		            FROM
+		                "nx_org_group" g                
+		            WHERE
+		                g.org_code= #upperOrgCode#
+		            UNION
+		            ALL    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]    
+		            FROM
+		                "nx_org_group" g    
+		            WHERE
+		                g.upper_org_code= #upperOrgCode#   
+		            UNION
+		            ALL    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                LEVEL + 1,
+		                CAST(g.org_code as text) || sb.PATH     
+		            FROM
+		                "nx_org_group" g,
+		                LIST sb    
+		            WHERE
+		                g.upper_org_code=sb.org_code   )   SELECT
+		                distinct unnest(PATH) org_code   
+		            FROM
+		                LIST L      
+		        ) OL 
+		            ON d.org_code=OL.org_code              
+		WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+		        and a.policy_id =   #policyid#
+		group by a.sldm_empno, a.policy_id
+		order by tot_event DESC
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#   
+		)SELECT 
+		 	    #begindate# || ' ~ ' ||  #enddate# period,
+		        a.policy_id ,
+		        b.sec_pol_desc ,
+		        coalesce(c.org_nm_1, '') org_nm_1,
+		        coalesce(c.org_nm_2, '') org_nm_2,
+		        coalesce(c.org_nm_3, '') org_nm_3,
+		        coalesce(c.org_nm_4, '') org_nm_4,
+		        coalesce(c.org_nm_5, '') org_nm_5,
+		        coalesce(c.org_nm_6, '') org_nm_6,
+		        d.emp_no,
+		        d.emp_nm, 
+				a.tot_event
+		FROM LIST a
+		LEFT JOIN
+		        pol_idx b 
+		            on a.policy_id = b.sec_pol_id  
+		LEFT JOIN
+		        nx_org_user_hier c 
+		            on a.empno = c.emp_no 
+		LEFT JOIN
+		        nx_org_user d 
+		            on a.empno = d.emp_no
+		order by tot_event DESC
+	
+	]]>
+	</select>
+	
+	<!-- 정책별 직원통계 조회 (전체조회수) -->  
+	<select id="statistic.getPolictfactInfoUserTotalCount" 	parameterClass="statSearchVO" resultClass="int">
+	<![CDATA[
+	WITH LIST(item) AS
+	(
+			SELECT 
+				1 
+			FROM policyfact a
+			JOIN nx_org_user d 
+			            on a.sldm_empno = d.emp_no  
+			INNER JOIN
+			        (
+			            WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)   AS   (    SELECT
+			                g.org_code,
+			                g.upper_org_code,
+			                g.org_nm,
+			                0,
+			                ARRAY[CAST(g.org_code as text)]                
+			            FROM
+			                "nx_org_group" g                
+			            WHERE
+			                g.org_code=#upperOrgCode#    
+			            UNION
+			            ALL    SELECT
+			                g.org_code,
+			                g.upper_org_code,
+			                g.org_nm,
+			                0,
+			                ARRAY[CAST(g.org_code as text)]    
+			            FROM
+			                "nx_org_group" g    
+			            WHERE
+			                g.upper_org_code= #upperOrgCode# 
+			            UNION
+			            ALL    SELECT
+			                g.org_code,
+			                g.upper_org_code,
+			                g.org_nm,
+			                LEVEL + 1,
+			                CAST(g.org_code as text) || sb.PATH     
+			            FROM
+			                "nx_org_group" g,
+			                LIST sb    
+			            WHERE
+			                g.upper_org_code=sb.org_code   )   SELECT
+			                distinct unnest(PATH) org_code   
+			            FROM
+			                LIST L      
+			        ) OL 
+			            ON d.org_code=OL.org_code              
+			WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+			        and a.policy_id =  #policyid#
+			group by a.sldm_empno, a.policy_id
+	)SELECT count(item) FROM LIST	
+
+	]]>
+	</select>
+	
+	<!-- 정책별 직원통계 조회 
+	<select id="statistic.getPolictfactInfoUserForExportExcel" parameterClass="statSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+	SELECT 
+		#begindate# || ' ~ ' ||  #enddate# period
+	      , a.policy_id
+	      , b.sec_pol_desc
+	      , coalesce(c.org_nm_1, '') org_nm_1
+	      , coalesce(c.org_nm_2, '') org_nm_2
+	      , coalesce(c.org_nm_3, '') org_nm_3
+	      , coalesce(c.org_nm_4, '') org_nm_4
+	      , coalesce(c.org_nm_5, '') org_nm_5
+	      , coalesce(c.org_nm_6, '') org_nm_6
+	      , d.emp_no
+		  , d.emp_nm
+	      , sum(a.event_count) tot_event 
+	FROM policyfact a
+	JOIN pol_idx b on a.policy_id = b.sec_pol_id
+	JOIN nx_org_user_hier c on a.sldm_empno = c.emp_no
+	JOIN nx_org_user d on a.sldm_empno = d.emp_no
+	INNER JOIN (
+		WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+		AS
+		(
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]     
+		       	FROM "nx_org_group" g     
+		       	WHERE g.org_code=#upperOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+			FROM "nx_org_group" g
+			WHERE g.upper_org_code=#upperOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH 
+			FROM "nx_org_group" g, LIST sb
+			WHERE g.upper_org_code=sb.org_code
+		)
+		SELECT distinct unnest(PATH) org_code
+		FROM LIST L
+   		) OL ON d.org_code=OL.org_code
+	WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+	and a.policy_id = #policyid#
+	group by c.org_nm_1, c.org_nm_2, c.org_nm_3, c.org_nm_4, c.org_nm_5, c.org_nm_6, a.policy_id, b.sec_pol_desc, d.posn_nm, d.emp_no, d.emp_nm
+	order by tot_event desc
+	]]>
+	</select>-->
+	<!-- 정책별 직원통계 조회 -->
+	<select id="statistic.getPolictfactInfoUserForExportExcel" parameterClass="statSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+	WITH LIST(empno, policy_id, tot_event)
+		AS(
+		SELECT 
+			a.sldm_empno,
+			a.policy_id ,
+			sum(a.event_count) tot_event   
+		FROM policyfact a
+		JOIN nx_org_user d 
+		            on a.sldm_empno = d.emp_no  
+		INNER JOIN
+		        (
+		            WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)   AS   (    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]                
+		            FROM
+		                "nx_org_group" g                
+		            WHERE
+		                g.org_code= #upperOrgCode#
+		            UNION
+		            ALL    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                0,
+		                ARRAY[CAST(g.org_code as text)]    
+		            FROM
+		                "nx_org_group" g    
+		            WHERE
+		                g.upper_org_code= #upperOrgCode#   
+		            UNION
+		            ALL    SELECT
+		                g.org_code,
+		                g.upper_org_code,
+		                g.org_nm,
+		                LEVEL + 1,
+		                CAST(g.org_code as text) || sb.PATH     
+		            FROM
+		                "nx_org_group" g,
+		                LIST sb    
+		            WHERE
+		                g.upper_org_code=sb.org_code   )   SELECT
+		                distinct unnest(PATH) org_code   
+		            FROM
+		                LIST L      
+		        ) OL 
+		            ON d.org_code=OL.org_code              
+		WHERE a.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+		        and a.policy_id =   #policyid#
+		group by a.sldm_empno, a.policy_id
+		)SELECT 
+		 	    #begindate# || ' ~ ' ||  #enddate# period,
+		        a.policy_id ,
+		        b.sec_pol_desc ,
+		        coalesce(c.org_nm_1, '') org_nm_1,
+		        coalesce(c.org_nm_2, '') org_nm_2,
+		        coalesce(c.org_nm_3, '') org_nm_3,
+		        coalesce(c.org_nm_4, '') org_nm_4,
+		        coalesce(c.org_nm_5, '') org_nm_5,
+		        coalesce(c.org_nm_6, '') org_nm_6,
+		        d.emp_no,
+		        d.emp_nm, 
+				a.tot_event
+		FROM LIST a
+		LEFT JOIN
+		        pol_idx b 
+		            on a.policy_id = b.sec_pol_id  
+		LEFT JOIN
+		        nx_org_user_hier c 
+		            on a.empno = c.emp_no 
+		LEFT JOIN
+		        nx_org_user d 
+		            on a.empno = d.emp_no
+		order by tot_event DESC
+	]]>
+	</select>
+	
+	<!-- 조직 하위 조회 -->
+	<select id="statistic.getSubOrgList" parameterClass="java.lang.String" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+	 SELECT G.org_code ,
+        G.org_level ,
+        G.org_nm,
+        CASE 
+            WHEN (SELECT
+                COUNT(*) 
+            FROM
+                "nx_org_group" 
+            WHERE
+                upper_org_code=G.org_code AND use_indc='1') > 0 THEN 'Y' 
+            ELSE 'N' 
+        END issuborg
+    FROM
+        "nx_org_group" G     
+    WHERE G.use_indc='1' AND G.upper_org_code = #upperOrgCode#
+    	AND (SELECT count(1) FROM nx_org_user U WHERE U.org_code=G.org_code) > 0
+    ORDER BY G.org_order;
+    ]]>
+	</select>
+	
+	<!-- 조직별 정책별  건수합 -->
+	<select id="statistic.getUpperOrgPolicySumCount" parameterClass="statSearchVO" resultClass="java.util.LinkedHashMap">
+	<isEqual property="buseoindc" compareValue="N">
+	<![CDATA[
+		SELECT I.org_code
+			, I.pol_idx_id
+			, SUM(I.tot_count) cnt
+			, trunc(ROUND(AVG(I.avg), 3)) score 
+		FROM nx_pol_sum_info I
+		WHERE I.org_code IN (SELECT
+		        G.org_code
+		    FROM
+		        "nx_org_group" G          
+		    WHERE G.use_indc='1'
+		        AnD G.upper_org_code =#upperOrgCode# 
+		        AND (SELECT count(1) FROM nx_org_user U WHERE U.org_code=G.org_code) > 0
+		    )
+		    AND I.pol_idx_id IN (SELECT sec_pol_id FROM pol_idx WHERE diag_majr_code=#majrCode# AND use_indc = 'Y')
+		AND sum_rgdt_date BETWEEN #begindate# AND #enddate#
+		GROUP BY I.org_code, I.pol_idx_id;
+	]]>
+	</isEqual>
+	<isEqual property="buseoindc" compareValue="Y">
+	<![CDATA[
+		SELECT I.org_code
+		, I.pol_idx_id
+		, SUM(I.tot_count) cnt
+		, trunc(ROUND(AVG(I.avg),3)) score 
+		FROM buseo_pol_sum_info I
+		WHERE I.org_code IN (SELECT
+		        G.org_code
+		    FROM
+		        "nx_org_group" G          
+		    WHERE G.use_indc='1' 
+		    	AND G.upper_org_code =#upperOrgCode#   
+		        AND (SELECT count(1) FROM nx_org_user U WHERE U.org_code=G.org_code) > 0
+		    )
+		    AND I.pol_idx_id IN (SELECT sec_pol_id FROM pol_idx WHERE diag_majr_code=#majrCode# AND use_indc = 'Y')
+		AND sum_rgdt_date BETWEEN #begindate# AND #enddate#
+		GROUP BY I.org_code, I.pol_idx_id;
+	]]>
+	</isEqual>
+	</select>
+	
+	<!-- 진단항목 및 정책 리스트 조회 -->
+	<select id="statistic.getDiagItemAndPolList" parameterClass="java.lang.String" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+	 SELECT p.diag_majr_code
+	, d1.diag_desc majr_name
+	, p.diag_minr_code
+	, d2.diag_desc minr_name
+	, p.sec_pol_id
+	, p.sec_pol_desc
+	FROM "pol_idx" p
+	LEFT JOIN "diag_item_code" d1 ON d1.diag_majr_code=p.diag_majr_code AND d1.diag_minr_code=p.diag_majr_code
+	LEFT JOIN "diag_item_code" d2 ON d1.diag_majr_code=p.diag_majr_code AND d2.diag_minr_code=p.diag_minr_code
+	WHERE p.use_indc='Y' AND p.diag_majr_code=#majrCode#
+	ORDER BY d2.ordr, p.sec_pol_id;
+    ]]>
+	</select>
+	
+	<!-- 조직별 전체 정책 건수 조회 -->
+	<select id="statistic.getUpperOrgPolicyTotalCount" parameterClass="statSearchVO" resultClass="java.util.LinkedHashMap">
+	<![CDATA[
+	SELECT P.sec_pol_id polId, coalesce(PL.eventcnt, 0) eventCnt
+	FROM "pol_idx" P
+	LEFT JOIN (
+		WITH PLIST(polid, eventcnt)AS(
+		SELECT PF.policy_id, coalesce(SUM(PF.event_count), 0)
+		FROM "policyfact" PF
+		LEFT JOIN "pol_idx" PI ON PF.policy_id=PI.sec_pol_id
+		INNER JOIN "nx_org_user" U ON PF.sldm_empno=U.emp_no
+		INNER JOIN "nx_org_group" G ON U.org_code=G.org_code
+		LEFT JOIN (WITH ORGLIST(org_code)AS(
+		WITH RECURSIVE LIST(org_code, upper_org_code, org_nm, LEVEL, PATH)
+		AS
+		(
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+			FROM "nx_org_group" g
+			WHERE g.org_code=#searchOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, 0, ARRAY[CAST(g.org_code as text)]
+			FROM "nx_org_group" g
+			WHERE g.upper_org_code=#searchOrgCode#
+			UNION ALL
+			SELECT g.org_code, g.upper_org_code, g.org_nm, LEVEL + 1, CAST(g.org_code as text) || sb.PATH
+			FROM "nx_org_group" g, LIST sb
+			WHERE g.upper_org_code=sb.org_code
+		)
+		SELECT distinct unnest(PATH) org_code
+		FROM LIST )
+		SELECT org_code FROM ORGLIST L) O ON G.org_code=O.org_code
+		WHERE PF.event_date BETWEEN to_date(#begindate#, 'YYYY-MM-DD') AND to_date(#enddate#, 'YYYY-MM-DD')
+		AND PI.diag_majr_code=#majrCode#
+		AND O.org_code is not null
+		GROUP BY PF.policy_id
+		)SELECT polid, eventcnt FROM PLIST
+	) PL ON P.sec_pol_id=polid
+	WHERE diag_majr_code=#majrCode# AND use_indc = 'Y'
+	ORDER BY P.sec_pol_id;
+	]]>
+	</select>
+	
+</sqlMap>
