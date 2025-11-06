@@ -2,8 +2,6 @@
 on:
   push: { branches: [ "main" ] }
   pull_request: { branches: [ "main" ] }
-  schedule:
-    - cron: "0 0 * * 5"   # 매주 금 09:00 KST(=UTC 0시)
 
 permissions:
   contents: read
@@ -19,14 +17,15 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"      # 프로젝트 JDK에 맞춰 8/11/17 중 선택
+          java-version: "11"     # 프로젝트 JDK에 맞게 8/11/17로 교체
 
       - uses: github/codeql-action/init@v3
         with:
           languages: java
 
-      - uses: github/codeql-action/autobuild@v3
+      # ⬇️ 수동 빌드(Autobuild 제거)
+      - name: Build with Maven
+        run: mvn -B -q -DskipTests package
 
       - uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:java"
+        with: { category: "/language:java" }
