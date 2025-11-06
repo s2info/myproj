@@ -1,4 +1,3 @@
-<!-- D:\myproj\pom.xml -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -8,37 +7,79 @@
   <version>1.0.0</version>
   <packaging>jar</packaging>
 
-  <!-- 표준이 아니면 소스 디렉터리 직접 지정 -->
- <build>
-  <sourceDirectory>sdiag/src</sourceDirectory>            <!-- 실제 경로로 교체 -->
-  <resources>
-    <resource><directory>sdiag/resources</directory></resource>
-  </resources>
-  <plugins>
-    <plugin>
-      <groupId>org.apache.maven.plugins</groupId>
-      <artifactId>maven-compiler-plugin</artifactId>
-      <version>3.11.0</version>
-      <configuration>
-        <source>1.8</source><target>1.8</target><encoding>UTF-8</encoding>
-      </configuration>
-    </plugin>
-  </plugins>
-</build>
+  <!-- 소스가 있는 실제 경로로 맞춤 -->
+  <build>
+    <sourceDirectory>sdiag/src</sourceDirectory>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+          <encoding>UTF-8</encoding>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 
+  <!-- eGovFrame 아티팩트용 저장소(필수) -->
+  <repositories>
+    <repository>
+      <id>egovframe</id>
+      <url>https://maven.egovframe.go.kr/maven/</url>
+    </repository>
+    <repository>
+      <id>central</id>
+      <url>https://repo1.maven.org/maven2/</url>
+    </repository>
+  </repositories>
 
   <dependencies>
-   <dependency>
-  <groupId>javax.servlet</groupId><artifactId>javax.servlet-api</artifactId>
-  <version>4.0.1</version><scope>provided</scope>
-</dependency>
-<dependency>
-  <groupId>javax.servlet.jsp</groupId><artifactId>javax.servlet.jsp-api</artifactId>
-  <version>2.3.3</version><scope>provided</scope>
-</dependency>
-<dependency>
-  <groupId>jstl</groupId><artifactId>jstl</artifactId><version>1.2</version>
-</dependency>
+    <!-- Spring -->
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-context</artifactId><version>4.3.30.RELEASE</version></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-beans</artifactId><version>4.3.30.RELEASE</version></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId><version>4.3.30.RELEASE</version></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-tx</artifactId><version>4.3.30.RELEASE</version></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-webmvc</artifactId><version>4.3.30.RELEASE</version></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-context-support</artifactId><version>4.3.30.RELEASE</version></dependency>
 
+    <!-- eGovFrame (DAO, FDL 등) -->
+    <dependency>
+      <groupId>egovframework.rte</groupId>
+      <artifactId>egovframework.rte.psl.dataaccess</artifactId>
+      <version>3.10.0</version>
+    </dependency>
+    <dependency>
+      <groupId>egovframework.rte</groupId>
+      <artifactId>egovframework.rte.fdl.property</artifactId>
+      <version>3.10.0</version>
+    </dependency>
+    <dependency>
+      <groupId>egovframework.rte</groupId>
+      <artifactId>egovframework.rte.fdl.security</artifactId>
+      <version>3.10.0</version>
+    </dependency>
+
+    <!-- JAXB / Mail -->
+    <dependency><groupId>javax.xml.bind</groupId><artifactId>jaxb-api</artifactId><version>2.3.1</version></dependency>
+    <dependency><groupId>com.sun.mail</groupId><artifactId>javax.mail</artifactId><version>1.6.2</version></dependency>
+
+    <!-- Quartz -->
+    <dependency><groupId>org.quartz-scheduler</groupId><artifactId>quartz</artifactId><version>2.3.2</version></dependency>
+
+    <!-- Apache POI (HSSF/XSSF, OpenXML) -->
+    <dependency><groupId>org.apache.poi</groupId><artifactId>poi</artifactId><version>5.2.5</version></dependency>
+    <dependency><groupId>org.apache.poi</groupId><artifactId>poi-ooxml</artifactId><version>5.2.5</version></dependency>
+    <dependency><groupId>org.apache.poi</groupId><artifactId>poi-ooxml-full</artifactId><version>5.2.5</version></dependency>
+
+    <!-- 기타 -->
+    <dependency><groupId>com.google.code.gson</groupId><artifactId>gson</artifactId><version>2.10.1</version></dependency>
+    <dependency><groupId>com.ibm.icu</groupId><artifactId>icu4j</artifactId><version>73.2</version></dependency>
+
+    <!-- 컨테이너 제공 -->
+    <dependency><groupId>javax.servlet</groupId><artifactId>javax.servlet-api</artifactId><version>4.0.1</version><scope>provided</scope></dependency>
+    <dependency><groupId>javax.servlet.jsp</groupId><artifactId>javax.servlet.jsp-api</artifactId><version>2.3.3</version><scope>provided</scope></dependency>
   </dependencies>
 </project>
