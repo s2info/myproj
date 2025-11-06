@@ -23,7 +23,6 @@ jobs:
         with: { languages: java }
 
       - name: Build with Maven
-        working-directory: sdiag
         run: mvn -B -q -DskipTests package
 
       - uses: github/codeql-action/analyze@v3
