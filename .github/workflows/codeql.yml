@@ -1,0 +1,32 @@
+﻿name: CodeQL
+on:
+  push: { branches: [ "main" ] }
+  pull_request: { branches: [ "main" ] }
+  schedule:
+    - cron: "0 0 * * 5"   # 매주 금 09:00 KST(=UTC 0시)
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"      # 프로젝트 JDK에 맞춰 8/11/17 중 선택
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: java
+
+      - uses: github/codeql-action/autobuild@v3
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java"
