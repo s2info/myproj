@@ -1,7 +1,10 @@
-<!-- pom.xml 교체/추가 핵심만 -->
-<project ...>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>local.wrap</groupId><artifactId>myproj</artifactId><version>1.0.0</version>
+  <groupId>local.wrap</groupId>
+  <artifactId>myproj</artifactId>
+  <version>1.0.0</version>
   <packaging>jar</packaging>
 
   <build>
@@ -12,13 +15,12 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.11.0</version>
         <configuration>
-          <source>1.8</source><target>1.8</target><encoding>UTF-8</encoding>
-          <!-- 문제가 되는 소스를 일단 제외 -->
+          <source>1.8</source>
+          <target>1.8</target>
+          <encoding>UTF-8</encoding>
           <excludes>
-            <!-- 내부 JDK/SUN, 사내 라이브러리, 미등록 패키지 사용 -->
             <exclude>**/sun/**</exclude>
             <exclude>**/webdecorder/**</exclude>
-            <!-- 직접 파일 단위 제외 -->
             <exclude>**/MailProcess.java</exclude>
             <exclude>**/MailUtil.java</exclude>
             <exclude>**/BpmRestController.java</exclude>
@@ -32,27 +34,23 @@
     </plugins>
   </build>
 
-  <!-- eGov 전용 리포지터리 포함 -->
   <repositories>
     <repository><id>egovframe</id><url>https://maven.egovframe.go.kr/maven/</url></repository>
     <repository><id>central</id><url>https://repo1.maven.org/maven2/</url></repository>
   </repositories>
 
   <dependencies>
-    <!-- Spring -->
     <dependency><groupId>org.springframework</groupId><artifactId>spring-context</artifactId><version>4.3.30.RELEASE</version></dependency>
     <dependency><groupId>org.springframework</groupId><artifactId>spring-webmvc</artifactId><version>4.3.30.RELEASE</version></dependency>
     <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId><version>4.3.30.RELEASE</version></dependency>
     <dependency><groupId>org.springframework</groupId><artifactId>spring-tx</artifactId><version>4.3.30.RELEASE</version></dependency>
     <dependency><groupId>org.springframework</groupId><artifactId>spring-context-support</artifactId><version>4.3.30.RELEASE</version></dependency>
 
-    <!-- eGovFrame 핵심 + 태그, Excel, ID 생성기 -->
     <dependency><groupId>egovframework.rte</groupId><artifactId>egovframework.rte.psl.dataaccess</artifactId><version>3.10.0</version></dependency>
     <dependency><groupId>egovframework.rte</groupId><artifactId>egovframework.rte.ptl.mvc</artifactId><version>3.10.0</version></dependency>
     <dependency><groupId>egovframework.rte</groupId><artifactId>egovframework.rte.fdl.excel</artifactId><version>3.10.0</version></dependency>
     <dependency><groupId>egovframework.rte</groupId><artifactId>egovframework.rte.fdl.idgnr</artifactId><version>3.10.0</version></dependency>
 
-    <!-- 기타 공통 -->
     <dependency><groupId>javax.xml.bind</groupId><artifactId>jaxb-api</artifactId><version>2.3.1</version></dependency>
     <dependency><groupId>com.sun.mail</groupId><artifactId>javax.mail</artifactId><version>1.6.2</version></dependency>
     <dependency><groupId>org.quartz-scheduler</groupId><artifactId>quartz</artifactId><version>2.3.2</version></dependency>
@@ -66,8 +64,8 @@
     <dependency><groupId>com.opencsv</groupId><artifactId>opencsv</artifactId><version>5.9</version></dependency>
     <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>42.7.4</version></dependency>
 
-    <!-- 컨테이너 제공 -->
     <dependency><groupId>javax.servlet</groupId><artifactId>javax.servlet-api</artifactId><version>4.0.1</version><scope>provided</scope></dependency>
     <dependency><groupId>javax.servlet.jsp</groupId><artifactId>javax.servlet.jsp-api</artifactId><version>2.3.3</version><scope>provided</scope></dependency>
   </dependencies>
 </project>
+
